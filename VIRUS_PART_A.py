@@ -12,7 +12,6 @@ class Virus:
     def __init__(self, colour, duration):
         self.colour = colour
         self.duration = duration
-        print(self.colour)
 
     def progress(self):
         self.duration -= 1
@@ -63,28 +62,37 @@ class Person:
         turtle.setpos(self.location)
         turtle.dot(self.radius * 2)
 
-    # PART C returns true if the distance between self and other is less than
-    # the diameter
     def collides(self, other):
-        pass
+        """Returns true if the distance between this person the other person is less
+        than this + the other person's radius, otherwise returns False.
+        """
+        if other is self:
+            return False
 
-    # PART C given a list of people, return a list containing only
-    # those people who are in contact with self
+        turtle.penup()  # Ensure nothing is drawn while moving
+        turtle.setpos(self.location)
+        return turtle.distance(other.location) <= (self.radius + other.radius)
+
     def collision_list(self, list_of_others):
-        pass
+        """Returns a list of people from the given list who are in contact
+        with this person.
+        """
+        return [person for person in list_of_others if self.collides(person)]
 
     def infect(self, virus):
         """Infects this person with the given virus"""
         self.virus = virus
 
     def reached_destination(self):
-        """Returns true if location is within 1 radius of destination."""
+        """Returns true if location is within 1 radius of destination,
+        otherwise returns False.
+        """
         turtle.penup()  # Ensure nothing is drawn while moving
         turtle.setpos(self.location)
         return turtle.distance(self.destination) <= self.radius
 
     def progress_illness(self):
-        """Progress this person's virus, curing them if it's duration runs out."""
+        """Progress this person's virus, curing them if it's duration is 0."""
         self.virus.progress()
         if self.virus.duration == 0:
             self.cured()
@@ -148,9 +156,16 @@ class World:
         for person in self.people:
             person.cured()
 
-    # Part C check for collisions and pass infection to other people
     def update_infections_slow(self):
-        pass
+        """Infect anyone in contact with an infected person."""
+        infected = [person for person in self.people if person.isInfected()]
+        to_infect = set()
+
+        for person in infected:
+            to_infect.update(person.collision_list(self.people))
+
+        for person in to_infect:
+            person.infect(Virus("red", 7))
 
     # Part D make the collision detection faster
     def update_infections_fast(self):
@@ -164,6 +179,7 @@ class World:
         self.hours += 1
         for person in self.people:
             person.update()
+        self.update_infections_slow()
 
     def draw(self):
         """Draws this world.
