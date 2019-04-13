@@ -9,12 +9,13 @@ import random
 class Virus:
     """Used to infect."""
 
-    def __init__(self, colour, duration):
+    def __init__(self, colour=(1, 0, 0), duration=7):
         self.colour = colour
         self.duration = duration
 
     def progress(self):
         self.duration -= 1
+        self.colour = tuple([val*0.9 for val in self.colour])
 
 
 class Person:
@@ -63,8 +64,8 @@ class Person:
         turtle.dot(self.radius * 2)
 
     def collides(self, other):
-        """Returns true if the distance between this person the other person is less
-        than this + the other person's radius, otherwise returns False.
+        """Returns true if the distance between this person and the other person is
+        less than this + the other person's radius, otherwise returns False.
         """
         if other is self:
             return False
@@ -149,7 +150,7 @@ class World:
         """
 
         rand_person = random.choice(self.people)
-        rand_person.infect(Virus("red", 7))
+        rand_person.infect(Virus())
 
     def cure_all(self):
         """Cures all people in this world."""
@@ -158,14 +159,14 @@ class World:
 
     def update_infections_slow(self):
         """Infect anyone in contact with an infected person."""
-        infected = [person for person in self.people if person.isInfected()]
+        infected = (person for person in self.people if person.isInfected())
         to_infect = set()
 
         for person in infected:
             to_infect.update(person.collision_list(self.people))
 
         for person in to_infect:
-            person.infect(Virus("red", 7))
+            person.infect(Virus())
 
     # Part D make the collision detection faster
     def update_infections_fast(self):
@@ -197,19 +198,17 @@ class World:
         y = height // 2
 
         turtle.clear()
-        turtle.color('black')
-
+        for person in self.people:
+            person.draw()
         self.draw_rect(x, y, width, height)
         self.draw_text(x, y, f'Hours: {self.hours}')
         self.draw_text(0, y, f'Infected: {self.count_infected()}',
                        align='center')
 
-        for person in self.people:
-            person.draw()
-
     def draw_text(self, x, y, text, align='left'):
         """Writes the given text on the screen."""
         turtle.penup()  # Ensure nothing is drawn while moving
+        turtle.color('black')
         turtle.setpos(x, y)
         turtle.write(text, align=align)
 
@@ -236,6 +235,7 @@ class World:
         if reverse:
             length *= -1
 
+        turtle.color('black')
         turtle.penup()  # Ensure nothing is drawn while moving
         turtle.setpos(x, y)
         turtle.pendown()
@@ -291,7 +291,7 @@ class GraphicalWorld:
         """ Infect a person, and update the drawing """
         print('infecting a person')
         self.world.infect_person()
-        self.world.draw()  # Error goes away when this line is removed!
+        self.world.draw()
 
     def cure(self):
         """ Remove infections from all the people """
