@@ -32,12 +32,12 @@ class Person:
 
         # Adjust coordinates to start from the top-left corner of the world
         width, height = self.world_size
-        x = 0 - width // 2
+        x = 0 - (width // 2)
         y = height // 2
 
         # Generate a random (x, y) coordinate within the world's borders
-        x += random.randint(2, width-1)
-        y -= random.randint(2, height-1)
+        x += random.uniform(self.radius + 1, width - self.radius)
+        y -= random.uniform(self.radius + 1, height - self.radius)
 
         return x, y
 
@@ -45,8 +45,7 @@ class Person:
     def draw(self):
         """Draws this person as a black dot at their current location."""
         turtle.setpos(self.location)
-        # turtle.dot(self.radius * 2)
-        turtle.write(self.location)  # For debugging only
+        turtle.dot(self.radius * 2)
 
     # PART C returns true if the distance between self and other is less than
     # the diameter
@@ -82,19 +81,25 @@ class Person:
             self.destination = self._get_random_location()
 
     def move(self):
-        """Moves this person radius // 2 towards their destination."""
+        """Moves this person towards their destination.
+
+        If this person is within radius / 2 of their destination they'll
+        be moved to their destination instantly. Otherwise, they'll be moved
+        radius / 2 units towards their destination.
+        """
+
+        # Determine if this person is within radius / 2 of their destination
         turtle.setpos(self.location)
         distance = turtle.distance(self.destination)
-        distance -= self.radius // 2
+        distance -= self.radius / 2
 
         if distance < 0:
             self.location = self.destination
             return
 
-        # Using turtle we can easily get the new location
+        # Move this person radius / 2 towards their destination
         turtle.setheading(turtle.towards(self.destination))
-        turtle.forward(distance)
-
+        turtle.forward(self.radius/2)
         self.location = turtle.pos()
 
     # cures the person of infection
@@ -110,7 +115,8 @@ class World:
         self.hours = 0
         self.people = []
         self.screen = turtle.Screen()
-        self.add_person()
+        for i in range(n):
+            self.add_person()
 
     # add a person to the list
     def add_person(self):
@@ -264,6 +270,7 @@ class GraphicalWorld:
         """ Perform the tasks needed for the next animation cycle """
         self.world.simulate()
         self.world.draw()
+        # self.framework.stop_simulation()  # To advance one hour at a time
 
 
 class AnimationFramework:
