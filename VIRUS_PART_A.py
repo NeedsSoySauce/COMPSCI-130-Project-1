@@ -12,6 +12,10 @@ class Virus:
     def __init__(self, colour, duration):
         self.colour = colour
         self.duration = duration
+        print(self.colour)
+
+    def progress(self):
+        self.duration -= 1
 
 
 class Person:
@@ -20,9 +24,9 @@ class Person:
     def __init__(self, world_size):
         self.world_size = world_size
         self.radius = 7
-        self.location = (0, 0)
+        self.location = self._get_random_location()
         self.destination = self._get_random_location()
-        pass
+        self.virus = None
 
     # random locations are used to assign a destination for the person
     # the possible locations should not be closer than 1 radius to the edge of
@@ -43,7 +47,19 @@ class Person:
 
     # draw a person using a dot.  Use colour if implementing Viruses
     def draw(self):
-        """Draws this person as a black dot at their current location."""
+        """Draws this person as a coloured dot at their current location.
+
+        The person will be drawn in their virus' colour if they are infected, 
+        otherwise they will be drawn in black.
+        """
+
+        turtle.penup()  # Ensure nothing is drawn while moving
+
+        person_colour = (0, 0, 0)  # Black
+        if self.isInfected():
+            person_colour = self.virus.colour
+
+        turtle.color(person_colour)
         turtle.setpos(self.location)
         turtle.dot(self.radius * 2)
 
@@ -59,17 +75,20 @@ class Person:
 
     # Infect a person with the given virus
     def infect(self, virus):
-        pass
+        self.virus = virus
 
     def reached_destination(self):
         """Returns true if location is within 1 radius of destination."""
+        turtle.penup()  # Ensure nothing is drawn while moving
         turtle.setpos(self.location)
         return turtle.distance(self.destination) <= self.radius
 
     # Increase hours of sickness, check if duration of virus is reached.
     # If the duration is reached then the person is cured
     def progress_illness(self):
-        pass
+        self.virus.progress()
+        if self.virus.duration == 0:
+            self.cured()
 
     # Updates the person each hour.
     # - moves each person by calling the move method
@@ -79,32 +98,23 @@ class Person:
         self.move()
         if self.reached_destination():
             self.destination = self._get_random_location()
+        if self.isInfected():
+            self.progress_illness()
 
     def move(self):
-        """Moves this person towards their destination.
-
-        If this person is within radius / 2 of their destination they'll
-        be moved to their destination instantly. Otherwise, they'll be moved
-        radius / 2 units towards their destination.
-        """
-
-        # Determine if this person is within radius / 2 of their destination
+        """Moves this person radius / 2 towards their destination."""
+        turtle.penup()  # Ensure nothing is drawn while moving
         turtle.setpos(self.location)
-        distance = turtle.distance(self.destination)
-        distance -= self.radius / 2
-
-        if distance < 0:
-            self.location = self.destination
-            return
-
-        # Move this person radius / 2 towards their destination
         turtle.setheading(turtle.towards(self.destination))
         turtle.forward(self.radius/2)
         self.location = turtle.pos()
 
     # cures the person of infection
     def cured(self):
-        pass
+        self.virus = None
+
+    def isInfected(self):
+        return self.virus is not None
 
 
 class World:
@@ -114,7 +124,6 @@ class World:
         self.size = (width, height)
         self.hours = 0
         self.people = []
-        self.screen = turtle.Screen()
         for i in range(n):
             self.add_person()
 
@@ -122,13 +131,20 @@ class World:
     def add_person(self):
         self.people.append(Person(self.size))
 
-    # choose a random person to infect and infect with a Virus
     def infect_person(self):
-        pass
+        """Infects a random person in this world with a virus.
+
+        It is possible for the chosen person to already be infected
+        with a virus.
+        """
+
+        rand_person = random.choice(self.people)
+        rand_person.infect(Virus("red", 7))
 
     # remove all infections from all people
     def cure_all(self):
-        pass
+        for person in self.people:
+            person.cured()
 
     # Part C check for collisions and pass infection to other people
     def update_infections_slow(self):
@@ -156,23 +172,26 @@ class World:
     def draw(self):
         """Draw the world."""
 
-        # Adjust drawing to start from the top-left corner of the world
+        # Top-left corner of the world
         width, height = self.size
         x = 0 - width // 2
         y = height // 2
 
         turtle.clear()
+        turtle.color('black')
 
         self.draw_rect(x, y, width, height)
-        self.draw_hours(x, y)
+        self.draw_text(x, y, f'Hours: {self.hours}')
+        self.draw_text(0, y, f'Infected: {self.count_infected()}',
+                       align='center')
 
         for person in self.people:
             person.draw()
 
-    def draw_hours(self, x, y):
-        """Draws the number of hours at the given coordinates."""
+    def draw_text(self, x, y, text, align='left'):
+        turtle.penup()  # Ensure nothing is drawn while moving
         turtle.setpos(x, y)
-        turtle.write(f'Hours: {self.hours}')
+        turtle.write(text, align=align)
 
     def draw_rect(self, x, y, width, height):
         """Draws a rectangle starting from the top-left corner."""
@@ -197,6 +216,7 @@ class World:
         if reverse:
             length *= -1
 
+        turtle.penup()  # Ensure nothing is drawn while moving
         turtle.setpos(x, y)
         turtle.pendown()
         turtle.forward(length)
@@ -204,7 +224,7 @@ class World:
 
     # Count the number of infected people
     def count_infected(self):
-        pass
+        return sum(True for person in self.people if person.isInfected())
 
 # ---------------------------------------------------------
 # Should not need to alter any of the code below this line
@@ -251,7 +271,7 @@ class GraphicalWorld:
         """ Infect a person, and update the drawing """
         print('infecting a person')
         self.world.infect_person()
-        self.world.draw()
+        self.world.draw()  # Error goes away when this line is removed!
 
     def cure(self):
         """ Remove infections from all the people """
