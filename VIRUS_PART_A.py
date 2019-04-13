@@ -1,119 +1,210 @@
-### COMPSCI 130, Semester 012019
-### Project Two - Virus
+# COMPSCI 130, Semester 012019
+# Project Two - Virus
+
+
 import turtle
 import random
 
-#used to infect 
+
 class Virus:
+    """Used to infect."""
+
     def __init__(self, colour, duration):
         self.colour = colour
         self.duration = duration
-        
-## This class represents a person
+
+
 class Person:
+    """This class represents a person."""
+
     def __init__(self, world_size):
         self.world_size = world_size
         self.radius = 7
         self.location = (0, 0)
-        self.destination = (0,0)
-        pass
-        
-    #random locations are used to assign a destination for the person
-    #the possible locations should not be closer than 1 radius to the edge of the world 
-    def _get_random_location(self):
-        pass
- 
-    #draw a person using a dot.  Use colour if implementing Viruses 
-    def draw(self):
+        self.destination = self._get_random_location()
         pass
 
-    #PART C returns true if the distance between self and other is less than the diameter
+    # random locations are used to assign a destination for the person
+    # the possible locations should not be closer than 1 radius to the edge of
+    # the world
+    def _get_random_location(self):
+        """Returns a random (x, y) position within this person's world size."""
+
+        # Adjust coordinates to start from the top-left corner of the world
+        width, height = self.world_size
+        x = 0 - width // 2
+        y = height // 2
+
+        # Generate a random (x, y) coordinate within the world's borders
+        x += random.randint(2, width-1)
+        y -= random.randint(2, height-1)
+
+        return x, y
+
+    # draw a person using a dot.  Use colour if implementing Viruses
+    def draw(self):
+        """Draws this person as a black dot at their current location."""
+        turtle.setpos(self.location)
+        # turtle.dot(self.radius * 2)
+        turtle.write(self.location)  # For debugging only
+
+    # PART C returns true if the distance between self and other is less than
+    # the diameter
     def collides(self, other):
         pass
 
-    #PART C given a list of people, return a list containing only
-    #those people who are in contact with self
+    # PART C given a list of people, return a list containing only
+    # those people who are in contact with self
     def collision_list(self, list_of_others):
         pass
 
-    #infect a person with the given virus
+    # Infect a person with the given virus
     def infect(self, virus):
         pass
 
-    #returns true if within 1 radius
     def reached_destination(self):
-        pass
+        """Returns true if location is within 1 radius of destination."""
+        turtle.setpos(self.location)
+        return turtle.distance(self.destination) <= self.radius
 
-    #increase hours of sickness, check if duration of virus is reached.  If the
-    #duration is reached then the person is cured
+    # Increase hours of sickness, check if duration of virus is reached.
+    # If the duration is reached then the person is cured
     def progress_illness(self):
-        pass     
+        pass
 
-    #Updates the person each hour.
-    #- moves each person by calling the move method
-    #- if the destination is reached then set a new destination
-    #- progress any illness
+    # Updates the person each hour.
+    # - moves each person by calling the move method
+    # - if the destination is reached then set a new destination
+    # - progress any illness
     def update(self):
-        pass
-        
-    #moves person towards the destination
+        self.move()
+        if self.reached_destination():
+            self.destination = self._get_random_location()
+
     def move(self):
+        """Moves this person radius // 2 towards their destination."""
+        turtle.setpos(self.location)
+        distance = turtle.distance(self.destination)
+        distance -= self.radius // 2
+
+        if distance < 0:
+            self.location = self.destination
+            return
+
+        # Using turtle we can easily get the new location
+        turtle.setheading(turtle.towards(self.destination))
+        turtle.forward(distance)
+
+        self.location = turtle.pos()
+
+    # cures the person of infection
+    def cured(self):
         pass
 
-    #cures the person of infection   
-    def cured(self):
-        pass 
-      
+
 class World:
+    """This class represents a simulated world."""
+
     def __init__(self, width, height, n):
         self.size = (width, height)
         self.hours = 0
         self.people = []
-    
-    #add a person to the list
-    def add_person(self):
-        pass
+        self.screen = turtle.Screen()
+        self.add_person()
 
-    #choose a random person to infect and infect with a Virus
+    # add a person to the list
+    def add_person(self):
+        self.people.append(Person(self.size))
+
+    # choose a random person to infect and infect with a Virus
     def infect_person(self):
         pass
 
-    #remove all infections from all people
+    # remove all infections from all people
     def cure_all(self):
         pass
 
-    #Part C check for collisions and pass infection to other people
+    # Part C check for collisions and pass infection to other people
     def update_infections_slow(self):
         pass
-                    
-                    
-    #Part D make the collision detection faster
+
+    # Part D make the collision detection faster
     def update_infections_fast(self):
         pass
-                    
-    #simulate one hour in the world.
-    #- increase hours passed.
-    #- update all people
-    #- update all infection transmissions
-    def simulate(self):
-        pass
 
-    #Draw the world.  Perform the following tasks:
-    #   - clear the current screen
-    #   - draw all the people
-    #   - draw the box that frames the world
-    #   - write the number of hours and number of people infected at the top of the frame
+    # simulate one hour in the world.
+    # - increase hours passed.
+    # - update all people
+    # - update all infection transmissions
+    def simulate(self):
+        self.hours += 1
+        for person in self.people:
+            person.update()
+
+    # Draw the world.  Perform the following tasks:
+    # - clear the current screen
+    # - draw all the people
+    # - draw the box that frames the world
+    # - write the number of hours and number of people infected at the top
+    #   of the frame
     def draw(self):
+        """Draw the world."""
+
+        # Adjust drawing to start from the top-left corner of the world
+        width, height = self.size
+        x = 0 - width // 2
+        y = height // 2
+
         turtle.clear()
-        pass
-        
-    #Count the number of infected people
+
+        self.draw_rect(x, y, width, height)
+        self.draw_hours(x, y)
+
+        for person in self.people:
+            person.draw()
+
+    def draw_hours(self, x, y):
+        """Draws the number of hours at the given coordinates."""
+        turtle.setpos(x, y)
+        turtle.write(f'Hours: {self.hours}')
+
+    def draw_rect(self, x, y, width, height):
+        """Draws a rectangle starting from the top-left corner."""
+
+        # Draw the top-left corner of the rectangle
+        self.draw_line(x, y, width, orientation="horizontal")
+        self.draw_line(x, y, height)
+
+        # Draw the bottom-right corner of the rectangle
+        x += width
+        y -= height
+        self.draw_line(x, y, width, orientation="horizontal", reverse=True)
+        self.draw_line(x, y, height, reverse=True)
+
+    def draw_line(self, x, y, length, orientation="vertical", reverse=False):
+        """Draws a line starting from the top/left."""
+        if orientation == "vertical":
+            turtle.setheading(180)  # South
+        elif orientation == "horizontal":
+            turtle.setheading(90)  # East
+
+        if reverse:
+            length *= -1
+
+        turtle.setpos(x, y)
+        turtle.pendown()
+        turtle.forward(length)
+        turtle.penup()
+
+    # Count the number of infected people
     def count_infected(self):
         pass
-    
-#---------------------------------------------------------
-#Should not need to alter any of the code below this line
-#---------------------------------------------------------
+
+# ---------------------------------------------------------
+# Should not need to alter any of the code below this line
+# ---------------------------------------------------------
+
+
 class GraphicalWorld:
     """ Handles the user interface for the simulation
 
@@ -122,29 +213,34 @@ class GraphicalWorld:
     'x' - infects a random person
     'c' - cures all the people
     """
+
     def __init__(self):
         self.WIDTH = 800
         self.HEIGHT = 600
         self.TITLE = 'COMPSCI 130 Project One'
-        self.MARGIN = 50 #gap around each side
-        self.PEOPLE = 200 #number of people in the simulation
-        self.framework = AnimationFramework(self.WIDTH, self.HEIGHT, self.TITLE)
-        
-        self.framework.add_key_action(self.setup, 'z') 
+        self.MARGIN = 50  # gap around each side
+        self.PEOPLE = 200  # number of people in the simulation
+        self.framework = AnimationFramework(
+            self.WIDTH, self.HEIGHT, self.TITLE)
+
+        self.framework.add_key_action(self.setup, 'z')
         self.framework.add_key_action(self.infect, 'x')
         self.framework.add_key_action(self.cure, 'c')
-        self.framework.add_key_action(self.toggle_simulation, ' ') 
+        self.framework.add_key_action(self.toggle_simulation, ' ')
         self.framework.add_tick_action(self.next_turn)
-        
+
         self.world = None
 
     def setup(self):
         """ Reset the simulation to the initial state """
-        print('resetting the world')        
+        print('resetting the world')
         self.framework.stop_simulation()
-        self.world = World(self.WIDTH - self.MARGIN * 2, self.HEIGHT - self.MARGIN * 2, self.PEOPLE)
+        self.world = World(
+            self.WIDTH - self.MARGIN * 2,
+            self.HEIGHT - self.MARGIN * 2,
+            self.PEOPLE)
         self.world.draw()
-        
+
     def infect(self):
         """ Infect a person, and update the drawing """
         print('infecting a person')
@@ -162,46 +258,46 @@ class GraphicalWorld:
         if self.framework.simulation_is_running():
             self.framework.stop_simulation()
         else:
-            self.framework.start_simulation()           
+            self.framework.start_simulation()
 
     def next_turn(self):
         """ Perform the tasks needed for the next animation cycle """
         self.world.simulate()
         self.world.draw()
-        
-## This is the animation framework
-## Do not edit this framework
+
+
 class AnimationFramework:
     """This framework is used to provide support for animation of
        interactive applications using the turtle library.  There is
        no need to edit any of the code in this framework.
     """
+
     def __init__(self, width, height, title):
         self.width = width
         self.height = height
         self.title = title
         self.simulation_running = False
-        self.tick = None #function to call for each animation cycle
-        self.delay = 1 #smallest delay is 1 millisecond      
-        turtle.title(title) #title for the window
-        turtle.setup(width, height) #set window display
-        turtle.hideturtle() #prevent turtle appearance
-        turtle.tracer(0, 0) #prevent turtle animation
-        turtle.listen() #set window focus to the turtle window
-        turtle.mode('logo') #set 0 direction as straight up
-        turtle.penup() #don't draw anything
+        self.tick = None  # function to call for each animation cycle
+        self.delay = 1  # smallest delay is 1 millisecond
+        turtle.title(title)  # title for the window
+        turtle.setup(width, height)  # set window display
+        turtle.hideturtle()  # prevent turtle appearance
+        turtle.tracer(0, 0)  # prevent turtle animation
+        turtle.listen()  # set window focus to the turtle window
+        turtle.mode('logo')  # set 0 direction as straight up
+        turtle.penup()  # don't draw anything
         turtle.setundobuffer(None)
         self.__animation_loop()
 
     def start_simulation(self):
         self.simulation_running = True
-        
+
     def stop_simulation(self):
         self.simulation_running = False
 
     def simulation_is_running(self):
         return self.simulation_running
-    
+
     def add_key_action(self, func, key):
         turtle.onkeypress(func, key)
 
@@ -219,4 +315,4 @@ class AnimationFramework:
 
 gw = GraphicalWorld()
 gw.setup()
-turtle.mainloop() #Need this at the end to ensure events handled properly
+turtle.mainloop()  # Need this at the end to ensure events handled properly
