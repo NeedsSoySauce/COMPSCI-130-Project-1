@@ -28,11 +28,12 @@ class Person:
         self.destination = self._get_random_location()
         self.virus = None
 
-    # random locations are used to assign a destination for the person
-    # the possible locations should not be closer than 1 radius to the edge of
-    # the world
     def _get_random_location(self):
-        """Returns a random (x, y) position within this person's world size."""
+        """Returns a random (x, y) position within this person's world size.
+
+        The returned position will not be within 1 radius of the edge of this
+        person'sworld.
+        """
 
         # Adjust coordinates to start from the top-left corner of the world
         width, height = self.world_size
@@ -45,7 +46,6 @@ class Person:
 
         return x, y
 
-    # draw a person using a dot.  Use colour if implementing Viruses
     def draw(self):
         """Draws this person as a coloured dot at their current location.
 
@@ -73,8 +73,8 @@ class Person:
     def collision_list(self, list_of_others):
         pass
 
-    # Infect a person with the given virus
     def infect(self, virus):
+        """Infects this person with the given virus"""
         self.virus = virus
 
     def reached_destination(self):
@@ -83,18 +83,19 @@ class Person:
         turtle.setpos(self.location)
         return turtle.distance(self.destination) <= self.radius
 
-    # Increase hours of sickness, check if duration of virus is reached.
-    # If the duration is reached then the person is cured
     def progress_illness(self):
+        """Progress this person's virus, curing them if it's duration runs out."""
         self.virus.progress()
         if self.virus.duration == 0:
             self.cured()
 
-    # Updates the person each hour.
-    # - moves each person by calling the move method
-    # - if the destination is reached then set a new destination
-    # - progress any illness
     def update(self):
+        """Updates this person each hour.
+
+        - Moves this person towards their destination
+        - If the destination is reached then a new destination is set
+        - Progresses any illness
+        """
         self.move()
         if self.reached_destination():
             self.destination = self._get_random_location()
@@ -109,11 +110,12 @@ class Person:
         turtle.forward(self.radius/2)
         self.location = turtle.pos()
 
-    # cures the person of infection
     def cured(self):
+        """Removes this person's virus."""
         self.virus = None
 
     def isInfected(self):
+        """Returns True if this person is infected, else False."""
         return self.virus is not None
 
 
@@ -127,8 +129,8 @@ class World:
         for i in range(n):
             self.add_person()
 
-    # add a person to the list
     def add_person(self):
+        """Adds a new person to this world."""
         self.people.append(Person(self.size))
 
     def infect_person(self):
@@ -141,8 +143,8 @@ class World:
         rand_person = random.choice(self.people)
         rand_person.infect(Virus("red", 7))
 
-    # remove all infections from all people
     def cure_all(self):
+        """Cures all people in this world."""
         for person in self.people:
             person.cured()
 
@@ -154,23 +156,24 @@ class World:
     def update_infections_fast(self):
         pass
 
-    # simulate one hour in the world.
-    # - increase hours passed.
-    # - update all people
-    # - update all infection transmissions
     def simulate(self):
+        """Simulates one hour in this world.
+        - Updates all people
+        - Updates all infection transmissions
+        """
         self.hours += 1
         for person in self.people:
             person.update()
 
-    # Draw the world.  Perform the following tasks:
-    # - clear the current screen
-    # - draw all the people
-    # - draw the box that frames the world
-    # - write the number of hours and number of people infected at the top
-    #   of the frame
     def draw(self):
-        """Draw the world."""
+        """Draws this world.
+
+        - Clears the current screen
+        - Draws all the people in this world
+        - Draw the box that frames this world
+        - Writes the number of hours and number of people infected at the top
+        of the frame
+        """
 
         # Top-left corner of the world
         width, height = self.size
@@ -189,6 +192,7 @@ class World:
             person.draw()
 
     def draw_text(self, x, y, text, align='left'):
+        """Writes the given text on the screen."""
         turtle.penup()  # Ensure nothing is drawn while moving
         turtle.setpos(x, y)
         turtle.write(text, align=align)
@@ -222,8 +226,8 @@ class World:
         turtle.forward(length)
         turtle.penup()
 
-    # Count the number of infected people
     def count_infected(self):
+        """Returns the number of infected people in this world."""
         return sum(True for person in self.people if person.isInfected())
 
 # ---------------------------------------------------------
