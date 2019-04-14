@@ -7,6 +7,7 @@
 
 import turtle
 import random
+from math import ceil
 
 
 class EfficientCollision:
@@ -24,14 +25,14 @@ class EfficientCollision:
         return [int(coord/self.cell_size) for coord in location]
 
     def get_bounding_box(self, person):
-        """Returns the axis-aligned bounding box for the given person represented by
-        the (x, y) position of the top-left corner and the bottom right corner.
+        """Returns the axis-aligned bounding box for the given person
+        represented by the min and max coordinates along each plane.
         """
         x, y = person.location
         radius = person.radius
 
-        xmin, xmax = int(x-radius), int(x+radius) + 1
-        ymin, ymax = int(y-radius), int(y+radius) + 1
+        xmin, xmax = int(x-radius), int(ceil(x+radius))
+        ymin, ymax = int(y-radius), int(ceil(y+radius))
 
         return xmin, ymin, xmax, ymax
 
@@ -54,6 +55,47 @@ class EfficientCollision:
             self.add(person)
 
 
+class ColourGradient:
+    """Used to contain functions related to generating a gradient between two
+    or more colours."""
+
+    @staticmethod
+    def linear_sequence(colours, n):
+        """Returns a list representing a linear colour gradient with n
+        interpolated colours inbetween each colour in the given colours.
+        """
+        if len(colours) < 2:
+            raise ValueError("Cannot create a gradient with < 2 colours.")
+
+        gradient = [colours[0]]
+        for colour in colours[1:]:
+            gradient += ColourGradient.linear(gradient[-1], colour, n)
+
+        return gradient
+
+    @staticmethod
+    def linear(start, end, n):
+        """Returns a list representing a linear colour gradient with n
+        interpolated colours inbetween the given start to end colours.
+        """
+        gradient = [start]
+
+        # 1. Get the change between each colour channel from end to start
+        # 2. Divide each change by n + 1 so that we can add it to each
+        #    subsequent interpolated colour until we fall one addition short
+        #    of the end colour (which we already have)
+        step = [(e-s)/(n+1) for s, e in zip(start, end)]
+
+        # 3. Repeatedly add our step to the start colour to get each subsequent
+        #    interpolated colour
+        interpolated = start[:]
+        for _ in range(n):
+            interpolated = [i+s for i, s in zip(interpolated, step)]
+            gradient.append(interpolated)
+
+        return gradient + [end]
+
+
 class Virus:
     """A basic virus used to infect people."""
 
@@ -69,7 +111,7 @@ class Virus:
 
     def infect(self, person):
         """Infects the given person with a new instance of this virus."""
-        person.virus = Virus()
+        person.infect(Virus())
 
     def resetDuration(self):
         """Sets the duration of this virus to it's initial value."""
@@ -86,21 +128,30 @@ class RainbowVirus(Virus):
     # Colour values for red, orange, yellow, green, blue, purple, violet
     colours = [(1, 0, 0), (1, 127/255, 0), (1, 1, 0), (0, 1, 0), (0, 0, 1),
                (75/255, 0, 130/255), (148/255, 0, 211/255)]
-    colours += colours[1:-1][::-1]  # Smooththe transition from violet to red
+    colours = ColourGradient.linear_sequence(colours, 50)
+    colours += colours[1:-1][::-1]  # Smooth the transition from violet to red
     colour_count = len(colours)
     colour_index = 0
 
-    def __init__(self, duration=7):
+    def __init__(self, duration=14):
         """Creates a new RainbowVirus using the current rainbow colour."""
         self.duration = duration
         self.remaining_duration = duration
 
     @property
     def colour(self):
+        """Returns the current colour of the rainbow!"""
         return RainbowVirus.colours[RainbowVirus.colour_index]
 
     @classmethod
     def next_colour(cls):
+        """Moves onto the next colour in the rainbow, starting again from the
+        beginning once all the colours have been cycled through.
+        """
+        cls.colour_index = (cls.colour_index + 1) % cls.colour_count
+
+    @classmethod
+    def test(cls):
         """Moves onto the next colour in the rainbow, starting again from the
         beginning once all the colours have been cycled through.
         """
@@ -113,13 +164,15 @@ class RainbowVirus(Virus):
         if isinstance(person.virus, RainbowVirus):
             person.virus.resetDuration()
         else:
-            person.virus = RainbowVirus()
+            person.infect(RainbowVirus())
 
 
 class Person:
     """This class represents a person."""
 
     def __init__(self, world_size):
+        """Creates a new person at a random location who will randomly roam
+        within the given world size."""
         self.world_size = world_size
         self.radius = 7
         self.location = self._get_random_location()
@@ -147,7 +200,7 @@ class Person:
     def draw(self):
         """Draws this person as a coloured dot at their current location.
 
-        The person will be drawn in their virus' colour if they are infected, 
+        The person will be drawn in their virus' colour if they are infected,
         otherwise they will be drawn in black.
         """
 
@@ -157,9 +210,8 @@ class Person:
         if self.isInfected():
             person_colour = self.virus.colour
 
-        turtle.color(person_colour)
         turtle.setpos(self.location)
-        turtle.dot(self.radius * 2)
+        turtle.dot(self.radius * 2, person_colour)
 
     def collides(self, other):
         """Returns true if the distance between this person and the other person is
@@ -303,7 +355,7 @@ class World:
         self.hours += 1
         for person in self.people:
             person.update()
-        self.update_infections_slow()
+        self.update_infections_fast()
 
     def draw(self):
         """Draws this world.
@@ -375,14 +427,9 @@ def draw_line(x, y, length, orientation="vertical", reverse=False,
 
 def distance_2d(a, b):
     """Returns the distance between two 2D points of the form (x, y)."""
-
     # Standard distance formula for two points in the form (x, y)
     return ((b[0] - a[0])**2 + (b[1] - a[1])**2)**0.5
 
-
-def interpolate_colours(start, end):
-    """Returns a list of colours which are the"""
-    pass
 
 # ---------------------------------------------------------
 # Should not need to alter any of the code below this line
