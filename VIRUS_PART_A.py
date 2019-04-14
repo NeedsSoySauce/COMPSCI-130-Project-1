@@ -57,15 +57,13 @@ class Virus:
     """A basic virus used to infect people."""
 
     def __init__(self, colour=(1, 0, 0), duration=7):
-        """Creates a virus with the given colour, otherwise creates one with a
-        red colour.
-        """
+        """Creates a virus with the given colour and duration."""
         self.colour = colour
         self.duration = duration
         self.remaining_duration = duration
 
     def progress(self):
-        """remaining_duration this virus, reducing it's duration."""
+        """Reduces the remaining_duration of this virus."""
         self.remaining_duration -= 1
 
     def infect(self, person):
@@ -73,40 +71,45 @@ class Virus:
         person.virus = Virus()
 
     def resetDuration(self):
+        """Sets the duration of this virus to it's initial value."""
         self.remaining_duration = self.duration
 
     def isCured(self):
+        """Returns True if this virus has run out, otherwise returns False.'"""
         return self.remaining_duration == 0
 
 
 class RainbowVirus(Virus):
-    """Used to infect people.
-
-    This virus infects people in waves using the colours of the rainbow.
-    """
+    """This virus infects people using the colours of the rainbow."""
 
     colours = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'violet']
     colour_count = len(colours)
     colour_index = 0
 
-    def __init__(self):
-        """Creates a virus with the given colour, otherwise creates one with a
-        random colour.
-        """
-        super().__init__(RainbowVirus.colours[RainbowVirus.colour_index], 7)
+    def __init__(self, duration=7):
+        """Creates a new RainbowVirus using the current rainbow colour."""
+        self.duration = duration
+        self.remaining_duration = duration
 
-    def infect(self, person):
-        """Infects the given person with a new instance of this virus if they
-        haven't been infected yet, otherwise resets their virus' duration
-        """
-        if person.isInfected():
-            person.virus.resetDuration()
-        else:
-            person.virus = RainbowVirus()
+    @property
+    def colour(self):
+        return RainbowVirus.colours[RainbowVirus.colour_index]
 
     @classmethod
     def next_colour(cls):
+        """Moves onto the next colour in the rainbow, cycling back to the
+        beginning once all the colours have been cycled through.
+        """
         cls.colour_index = (cls.colour_index + 1) % cls.colour_count
+
+    def infect(self, person):
+        """Infects the given person with a new instance of this virus if they
+        haven't been infected by it yet, otherwise resets their virus' duration
+        """
+        if isinstance(person.virus, RainbowVirus):
+            person.virus.resetDuration()
+        else:
+            person.virus = RainbowVirus()
 
 
 class Person:
