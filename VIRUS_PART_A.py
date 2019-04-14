@@ -13,7 +13,8 @@ class EfficientCollision:
 
     def __init__(self, cell_size):
         """Initializes an empty spatial hash table with square cells using
-        cell_size as their side length."""
+        cell_size as their side length.
+        """
         self.cell_size = cell_size
         self.cells = {}
 
@@ -53,19 +54,59 @@ class EfficientCollision:
 
 
 class Virus:
-    """Used to infect."""
+    """A basic virus used to infect people."""
 
     def __init__(self, colour=(1, 0, 0), duration=7):
+        """Creates a virus with the given colour, otherwise creates one with a
+        red colour.
+        """
         self.colour = colour
         self.duration = duration
+        self.remaining_duration = duration
 
     def progress(self):
-        """Progresses this virus, reducing it's duration.
+        """remaining_duration this virus, reducing it's duration."""
+        self.remaining_duration -= 1
 
-        In addition, also reduces the intensity of this virus' colour.
+    def infect(self, person):
+        """Infects the given person with a new instance of this virus."""
+        person.virus = Virus()
+
+    def resetDuration(self):
+        self.remaining_duration = self.duration
+
+    def isCured(self):
+        return self.remaining_duration == 0
+
+
+class RainbowVirus(Virus):
+    """Used to infect people.
+
+    This virus infects people in waves using the colours of the rainbow.
+    """
+
+    colours = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'violet']
+    colour_count = len(colours)
+    colour_index = 0
+
+    def __init__(self):
+        """Creates a virus with the given colour, otherwise creates one with a
+        random colour.
         """
-        self.duration -= 1
-        self.colour = tuple([val*0.9 for val in self.colour])
+        super().__init__(RainbowVirus.colours[RainbowVirus.colour_index], 7)
+
+    def infect(self, person):
+        """Infects the given person with a new instance of this virus if they
+        haven't been infected yet, otherwise resets their virus' duration
+        """
+        if person.isInfected():
+            person.virus.resetDuration()
+        else:
+            person.virus = RainbowVirus()
+
+    @classmethod
+    def next_colour(cls):
+        cls.colour_index = (cls.colour_index + 1) % cls.colour_count
 
 
 class Person:
@@ -143,9 +184,9 @@ class Person:
         return turtle.distance(self.destination) <= self.radius
 
     def progress_illness(self):
-        """Progress this person's virus, curing them if it's duration is 0."""
+        """Progress this person's virus, curing them if it's been cured."""
         self.virus.progress()
-        if self.virus.duration == 0:
+        if self.virus.isCured():
             self.cured()
 
     def update(self):
@@ -201,7 +242,8 @@ class World:
         """
 
         rand_person = random.choice(self.people)
-        rand_person.infect(Virus())
+        new_virus = RainbowVirus()
+        new_virus.infect(rand_person)
 
     def cure_all(self):
         """Cures all people in this world."""
@@ -211,30 +253,42 @@ class World:
     def update_infections_slow(self):
         """Infect anyone in contact with an infected person."""
         infected = (person for person in self.people if person.isInfected())
-        to_infect = set()
-        
+        to_infect = set() 
+
         # Anyone an infected person collides with will be infected
         for person in infected:
             to_infect.update(person.collision_list(self.people))
 
         # Infect anyone who collided with an infected person
         for person in to_infect:
-            person.infect(Virus())
+            new_virus = RainbowVirus()
+            new_virus.infect(person)
+
+        # If anyone was infected, change the colour
+        if len(to_infect):
+            RainbowVirus.next_colour()
 
     def update_infections_fast(self):
-        """Uses a spatial hash table to perform quick collision detection."""
+        """Infect anyone in contact with an infected person."""
         self.collision_table.update(self.people)
 
         infected = (person for person in self.people if person.isInfected())
         to_infect = set()
 
+        # Anyone an infected person collides with will be infected
         for person in infected:
             cell = tuple(self.collision_table.hash(person.location))
             nearby_people = self.collision_table.cells[cell]
             to_infect.update(person.collision_list(nearby_people))
 
+        # Infect anyone who collided with an infected person
         for person in to_infect:
-            person.infect(Virus())
+            new_virus = RainbowVirus()
+            new_virus.infect(person)
+
+        # If anyone was infected, change the colour
+        if len(to_infect):
+            RainbowVirus.next_colour()
 
     def simulate(self):
         """Simulates one hour in this world.
