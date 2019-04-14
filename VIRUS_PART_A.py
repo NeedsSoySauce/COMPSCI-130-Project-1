@@ -1,9 +1,55 @@
 # COMPSCI 130, Semester 012019
 # Project Two - Virus
+# Author: Feras Albaroudi
+# UPI: falb418
 
 
 import turtle
 import random
+
+
+class EfficientCollision:
+    """Used to create a spatial hash table to perform collision detection."""
+
+    def __init__(self, cell_size):
+        """Initializes an empty spatial hash table with square cells using
+        cell_size as their side length."""
+        self.cell_size = cell_size
+        self.cells = {}
+
+    def hash(self, location):
+        """Returns the cell location which contains the given location."""
+        return [int(coord/self.cell_size) for coord in location]
+
+    def get_bounding_box(self, person):
+        """Returns the axis-aligned bounding box for the given person represented by
+        the (x, y) position of the top-left corner and the bottom right corner.
+        """
+        x, y = person.location
+        radius = person.radius
+
+        xmin, xmax = int(x-radius), int(x+radius) + 1
+        ymin, ymax = int(y-radius), int(y+radius) + 1
+
+        return xmin, ymin, xmax, ymax
+
+    def add(self, person):
+        """Adds the given person to all cells within their radius."""
+        xmin, ymin, xmax, ymax = self.hash(self.get_bounding_box(person))
+
+        # Add this person to all cells within their axis-aligned bounding box
+        for x in range(xmin, xmax+1):
+            for y in range(ymin, ymax+1):
+                if (x, y) in self.cells:
+                    self.cells[(x, y)].append(person)
+                else:
+                    self.cells[(x, y)] = [person]
+
+    def update(self, people):
+        """Updates the collision table using the given people."""
+        self.cells = {}
+        for person in people:
+            self.add(person)
 
 
 class Virus:
@@ -14,6 +60,10 @@ class Virus:
         self.duration = duration
 
     def progress(self):
+        """Progresses this virus, reducing it's duration.
+
+        In addition, also reduces the intensity of this virus' colour.
+        """
         self.duration -= 1
         self.colour = tuple([val*0.9 for val in self.colour])
 
@@ -135,6 +185,7 @@ class World:
         self.size = (width, height)
         self.hours = 0
         self.people = []
+        self.collision_table = EfficientCollision(28)
         for i in range(n):
             self.add_person()
 
@@ -161,16 +212,29 @@ class World:
         """Infect anyone in contact with an infected person."""
         infected = (person for person in self.people if person.isInfected())
         to_infect = set()
-
+        
+        # Anyone an infected person collides with will be infected
         for person in infected:
             to_infect.update(person.collision_list(self.people))
 
+        # Infect anyone who collided with an infected person
         for person in to_infect:
             person.infect(Virus())
 
-    # Part D make the collision detection faster
     def update_infections_fast(self):
-        pass
+        """Uses a spatial hash table to perform quick collision detection."""
+        self.collision_table.update(self.people)
+
+        infected = (person for person in self.people if person.isInfected())
+        to_infect = set()
+
+        for person in infected:
+            cell = tuple(self.collision_table.hash(person.location))
+            nearby_people = self.collision_table.cells[cell]
+            to_infect.update(person.collision_list(nearby_people))
+
+        for person in to_infect:
+            person.infect(Virus())
 
     def simulate(self):
         """Simulates one hour in this world.
@@ -180,7 +244,7 @@ class World:
         self.hours += 1
         for person in self.people:
             person.update()
-        self.update_infections_slow()
+        self.update_infections_fast()
 
     def draw(self):
         """Draws this world.
@@ -200,51 +264,54 @@ class World:
         turtle.clear()
         for person in self.people:
             person.draw()
-        self.draw_rect(x, y, width, height)
-        self.draw_text(x, y, f'Hours: {self.hours}')
-        self.draw_text(0, y, f'Infected: {self.count_infected()}',
-                       align='center')
-
-    def draw_text(self, x, y, text, align='left'):
-        """Writes the given text on the screen."""
-        turtle.penup()  # Ensure nothing is drawn while moving
-        turtle.color('black')
-        turtle.setpos(x, y)
-        turtle.write(text, align=align)
-
-    def draw_rect(self, x, y, width, height):
-        """Draws a rectangle starting from the top-left corner."""
-
-        # Draw the top-left corner of the rectangle
-        self.draw_line(x, y, width, orientation="horizontal")
-        self.draw_line(x, y, height)
-
-        # Draw the bottom-right corner of the rectangle
-        x += width
-        y -= height
-        self.draw_line(x, y, width, orientation="horizontal", reverse=True)
-        self.draw_line(x, y, height, reverse=True)
-
-    def draw_line(self, x, y, length, orientation="vertical", reverse=False):
-        """Draws a line starting from the top/left."""
-        if orientation == "vertical":
-            turtle.setheading(180)  # South
-        elif orientation == "horizontal":
-            turtle.setheading(90)  # East
-
-        if reverse:
-            length *= -1
-
-        turtle.color('black')
-        turtle.penup()  # Ensure nothing is drawn while moving
-        turtle.setpos(x, y)
-        turtle.pendown()
-        turtle.forward(length)
-        turtle.penup()
+        draw_rect(x, y, width, height)
+        draw_text(x, y, f'Hours: {self.hours}')
+        draw_text(0, y, f'Infected: {self.count_infected()}', align='center')
 
     def count_infected(self):
         """Returns the number of infected people in this world."""
         return sum(True for person in self.people if person.isInfected())
+
+
+def draw_text(x, y, text, align='left', colour='black'):
+    """Writes the given text on the screen."""
+    turtle.penup()  # Ensure nothing is drawn while moving
+    turtle.color(colour)
+    turtle.setpos(x, y)
+    turtle.write(text, align=align)
+
+
+def draw_rect(x, y, width, height):
+    """Draws a rectangle starting from the top-left corner."""
+
+    # Draw the top-left corner of the rectangle
+    draw_line(x, y, width, orientation="horizontal")
+    draw_line(x, y, height)
+
+    # Draw the bottom-right corner of the rectangle
+    x += width
+    y -= height
+    draw_line(x, y, width, orientation="horizontal", reverse=True)
+    draw_line(x, y, height, reverse=True)
+
+
+def draw_line(x, y, length, orientation="vertical", reverse=False,
+              colour='black'):
+    """Draws a line starting from the top/left."""
+    if orientation == "vertical":
+        turtle.setheading(180)  # South
+    elif orientation == "horizontal":
+        turtle.setheading(90)  # East
+
+    if reverse:
+        length *= -1
+
+    turtle.color(colour)
+    turtle.penup()  # Ensure nothing is drawn while moving
+    turtle.setpos(x, y)
+    turtle.pendown()
+    turtle.forward(length)
+    turtle.penup()
 
 # ---------------------------------------------------------
 # Should not need to alter any of the code below this line
