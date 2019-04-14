@@ -2,6 +2,7 @@
 # Project Two - Virus
 # Author: Feras Albaroudi
 # UPI: falb418
+# ID: 606316306
 
 
 import turtle
@@ -82,7 +83,10 @@ class Virus:
 class RainbowVirus(Virus):
     """This virus infects people using the colours of the rainbow."""
 
-    colours = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'violet']
+    # Colour values for red, orange, yellow, green, blue, purple, violet
+    colours = [(1, 0, 0), (1, 127/255, 0), (1, 1, 0), (0, 1, 0), (0, 0, 1),
+               (75/255, 0, 130/255), (148/255, 0, 211/255)]
+    colours += colours[1:-1][::-1]  # Smooththe transition from violet to red
     colour_count = len(colours)
     colour_index = 0
 
@@ -97,7 +101,7 @@ class RainbowVirus(Virus):
 
     @classmethod
     def next_colour(cls):
-        """Moves onto the next colour in the rainbow, cycling back to the
+        """Moves onto the next colour in the rainbow, starting again from the
         beginning once all the colours have been cycled through.
         """
         cls.colour_index = (cls.colour_index + 1) % cls.colour_count
@@ -164,9 +168,8 @@ class Person:
         if other is self:
             return False
 
-        turtle.penup()  # Ensure nothing is drawn while moving
-        turtle.setpos(self.location)
-        return turtle.distance(other.location) <= (self.radius + other.radius)
+        return distance_2d(self.location, other.location) <= \
+            (self.radius + other.radius)
 
     def collision_list(self, list_of_others):
         """Returns a list of people from the given list who are in contact
@@ -179,15 +182,13 @@ class Person:
         self.virus = virus
 
     def reached_destination(self):
-        """Returns true if location is within 1 radius of destination,
+        """Returns True if location is within 1 radius of destination,
         otherwise returns False.
         """
-        turtle.penup()  # Ensure nothing is drawn while moving
-        turtle.setpos(self.location)
-        return turtle.distance(self.destination) <= self.radius
+        return distance_2d(self.location, self.destination) <= self.radius
 
     def progress_illness(self):
-        """Progress this person's virus, curing them if it's been cured."""
+        """Progress this person's virus, curing them if it's run out."""
         self.virus.progress()
         if self.virus.isCured():
             self.cured()
@@ -226,6 +227,7 @@ class World:
     """This class represents a simulated world."""
 
     def __init__(self, width, height, n):
+        """Creates a new world centered on (0, 0) containing n people."""
         self.size = (width, height)
         self.hours = 0
         self.people = []
@@ -301,7 +303,7 @@ class World:
         self.hours += 1
         for person in self.people:
             person.update()
-        self.update_infections_fast()
+        self.update_infections_slow()
 
     def draw(self):
         """Draws this world.
@@ -310,7 +312,7 @@ class World:
         - Draws all the people in this world
         - Draw the box that frames this world
         - Writes the number of hours and number of people infected at the top
-        of the frame
+          of the frame
         """
 
         # Top-left corner of the world
@@ -369,6 +371,18 @@ def draw_line(x, y, length, orientation="vertical", reverse=False,
     turtle.pendown()
     turtle.forward(length)
     turtle.penup()
+
+
+def distance_2d(a, b):
+    """Returns the distance between two 2D points of the form (x, y)."""
+
+    # Standard distance formula for two points in the form (x, y)
+    return ((b[0] - a[0])**2 + (b[1] - a[1])**2)**0.5
+
+
+def interpolate_colours(start, end):
+    """Returns a list of colours which are the"""
+    pass
 
 # ---------------------------------------------------------
 # Should not need to alter any of the code below this line
