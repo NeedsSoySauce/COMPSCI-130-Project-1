@@ -150,13 +150,6 @@ class RainbowVirus(Virus):
         """
         cls.colour_index = (cls.colour_index + 1) % cls.colour_count
 
-    @classmethod
-    def test(cls):
-        """Moves onto the next colour in the rainbow, starting again from the
-        beginning once all the colours have been cycled through.
-        """
-        cls.colour_index = (cls.colour_index + 1) % cls.colour_count
-
     def infect(self, person):
         """Infects the given person with a new instance of this virus if they
         haven't been infected by it yet, otherwise resets their virus' duration
