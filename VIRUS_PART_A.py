@@ -1,5 +1,6 @@
 # COMPSCI 130, Semester 012019
 # Project Two - Virus
+
 # Author: Feras Albaroudi
 # UPI: falb418
 # ID: 606316306
@@ -202,10 +203,10 @@ class RainbowVirus(Virus):
 
 class ZebraVirus(Virus):
     """People infected with this virus individually alternate between black
-    and light gray.
+    and white.
     """
 
-    colours = [(0, 0, 0), (0.8, 0.8, 0.8)]  # Black and light gray
+    colours = [(0, 0, 0), (1, 1, 1)]  # Black and white
     colour_index = 0
 
     def __init__(self, duration=21):
@@ -274,6 +275,7 @@ class ZombieVirus(Virus):
 
     def __init__(self, idle_colour=(0.5, 0, 0), chase_colour=(1, 0, 0),
                  duration=-1):
+        """Creates a new ZombieVirus with the given attributes."""
         self.idle_colour = idle_colour
         self.chase_colour = chase_colour
         self.duration = duration
@@ -326,15 +328,16 @@ class ZombieVirus(Virus):
         return self.chase_colour
 
     @colour.setter
-    def colour(self, value):
-        """Raises an AttributeError as instances of this virus cannot have
-        their colour changed.
+    def colour(self, value_dict):
+        """Given a dict with keys idle_colour and chase_colour, assigns their
+        values to this instances corresponding colours.
         """
-        raise AttributeError("can't set the colour of ZebraVirus instances")
+        self.idle_colour = value_dict['idle_colour']
+        self.chase_colour = value_dict['chase_colour']
 
     def infect(self, person):
         """Infects the given person with a new instance of this virus and adds
-        them to ZombieVirus' list of infected people if they don't already have 
+        them to ZombieVirus' list of infected people if they don't already have
         this virus.
         """
         if not person.has_virus(self):
@@ -493,7 +496,14 @@ class Person:
 class World:
     """This class represents a simulated world."""
 
-    def __init__(self, width, height, n, viruses=[ZombieVirus]):
+    def __init__(self, width, height, n,
+                 viruses=[
+                     RainbowVirus,
+                     ZebraVirus,
+                     ImmunisableVirus,
+                     ZombieVirus
+                     ]
+                 ):
         """Creates a new world centered on (0, 0) containing n people which
         simulates the spread of the given virus(es) through this world.
         """
