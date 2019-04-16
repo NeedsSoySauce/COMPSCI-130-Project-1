@@ -137,7 +137,7 @@ class Virus:
         """Infects the given person with a new instance of this virus."""
         person.infect(self.__class__())
 
-    def resetDuration(self):
+    def reset_duration(self):
         """Sets the duration of this virus to it's initial value."""
         self.remaining_duration = self.duration
 
@@ -145,10 +145,16 @@ class Virus:
         """Returns True if this virus has run out, otherwise returns False.'"""
         return self.remaining_duration == 0
 
+    def cure(self, person):
+        """Removes this virus from the given person."""
+        person.viruses.discard(self)
+
     # @classmethod
-    # def on_world_update(cls):
+    # def on_world_update(cls, world):
     #     """If defined, this classmethod will automatically be called at the
-    #     end of every world update/simulation (i.e. every hour)."""
+    #     end of every world update/simulation (i.e. every hour) and is passed
+    #     the current world state.
+    #     """
     #     pass
 
 
@@ -170,6 +176,13 @@ class RainbowVirus(Virus):
         self.duration = duration
         self.remaining_duration = duration
 
+    @classmethod
+    def on_world_update(cls, world):
+        """Moves onto the next colour in the rainbow, starting again from the
+        beginning once all the colours have been cycled through.
+        """
+        cls.colour_index = (cls.colour_index + 1) % cls.colour_count
+
     @property
     def colour(self):
         """Returns the current colour of the rainbow!
@@ -186,30 +199,31 @@ class RainbowVirus(Virus):
         """
         raise AttributeError("can't set the colour of RainbowVirus instances")
 
-    @classmethod
-    def on_world_update(cls):
-        """Moves onto the next colour in the rainbow, starting again from the
-        beginning once all the colours have been cycled through.
-        """
-        cls.colour_index = (cls.colour_index + 1) % cls.colour_count
-
 
 class ZebraVirus(Virus):
     """People infected with this virus individually alternate between black
     and light gray.
     """
 
-    colours = [(0, 0, 0), (0.85, 0.85, 0.85)]  # Black and light gray
+    colours = [(0, 0, 0), (0.8, 0.8, 0.8)]  # Black and light gray
     colour_index = 0
 
     def __init__(self, duration=21):
+        """Creates a new ZebraVirus with the given duration."""
         self.duration = duration
         self.remaining_duration = duration
         self.colour_index = ZebraVirus.colour_index
 
+    @classmethod
+    def on_world_update(cls, world):
+        """Moves onto the next colour, starting again from the beginning once
+        all the colours have been cycled through.
+        """
+        cls.colour_index = (cls.colour_index + 1) % 2
+
     @property
     def colour(self):
-        """Returns the current colour of the rainbow!
+        """Returns the current colour.
 
         This attribute is decorated so that it can be accessed in the same way
         as all other viruses.
@@ -223,18 +237,123 @@ class ZebraVirus(Virus):
         """
         raise AttributeError("can't set the colour of ZebraVirus instances")
 
-    @classmethod
-    def on_world_update(cls):
-        """Moves onto the next colour, starting again from the beginning once
-        all the colours have been cycled through.
+
+class ImmunisableVirus(Virus):
+    """People who are cured of this virus cannot be infected by it again."""
+
+    immune = set()
+
+    def __init__(self, immune_colour=(0, 1, 0), infected_colour=(1, 0, 0),
+                 duration=28): 
+        """Creates a new ImmunisableVirus with the given attributes."""
+        super().__init__(infected_colour, duration)
+        self.immune_colour = immune_colour
+
+    def infect(self, person):
+        """Infects the given person with a new instance of this virus."""
+        if person not in ImmunisableVirus.immune:
+            person.infect(ImmunisableVirus())
+
+    def cure(self, person):
+        """Removes this virus from the given person, makes them immune to this
+        virus and changes their colour to indicate.
         """
-        cls.colour_index = (cls.colour_index + 1) % 2
+        person.viruses.discard(self)
+        person.colour = self.immune_colour
+        ImmunisableVirus.immune.add(person)
+
+
+class ZombieVirus(Virus):
+    """People infected by this virus will chase after people who aren't
+    infected.
+    """
+
+    infected = {}  # Stores (person, virus) pairs
+    healthy = []
+    running = True
+
+    def __init__(self, idle_colour=(0.5, 0, 0), chase_colour=(1, 0, 0),
+                 duration=-1):
+        self.idle_colour = idle_colour
+        self.chase_colour = chase_colour
+        self.duration = duration
+        self.remaining_duration = duration
+        self.target = None
+
+    @classmethod
+    def on_world_update(cls, world):
+        """Updates the list of healthy people for this class used to help
+        locate targets for people infected by this virus, and assigns targets
+        for people infected by this virus.
+        """
+        cls.healthy = [p for p in world.people if not p.is_infected()]
+
+        # If everyone is infected then there's nothing left to target, so we:
+        # - Clear all targets
+        # - Give out new (random) destinations to prevent everyone from
+        #   converging on the position of the last healthy person
+        # - Prevent the rest of this method from executing until there
+        #   are healthy people to target
+        if not cls.healthy and cls.running:
+            for person, virus in cls.infected.items():
+                person.destination = person._get_random_location()
+                virus.target = None
+            cls.running = False
+            return
+
+        # If healthy people appear while this virus has stopped then this
+        # virus can start up again and try to infect them
+        elif cls.healthy and not cls.running:
+            cls.running = True
+
+        # There's nothing left to infect
+        elif not cls.running:
+            return
+
+        # Assign targets and destinations to each infected person
+        for person, virus in cls.infected.items():
+            if virus.target is None or virus.target.is_infected():
+                virus.target = random.choice(cls.healthy)
+            person.destination = virus.target.location
+
+    @property
+    def colour(self):
+        """Returns idle_colour if this virus isn't chasing anyone, otherwise
+        returns chase_colour.
+        """
+        if self.target is None:
+            return self.idle_colour
+        return self.chase_colour
+
+    @colour.setter
+    def colour(self, value):
+        """Raises an AttributeError as instances of this virus cannot have
+        their colour changed.
+        """
+        raise AttributeError("can't set the colour of ZebraVirus instances")
+
+    def infect(self, person):
+        """Infects the given person with a new instance of this virus and adds
+        them to ZombieVirus' list of infected people if they don't already have 
+        this virus.
+        """
+        if not person.has_virus(self):
+            instance = self.__class__()
+            person.infect(instance)
+            ZombieVirus.infected[person] = instance
+
+    def cure(self, person):
+        """Removes this virus from the given person and removes them from this
+        ZombieVirus' list of infected people.
+        """
+        person.viruses.discard(self)
+        del ZombieVirus.infected[person]
 
 
 class Person:
     """This class represents a person."""
 
-    def __init__(self, world_size, default_colour=(0, 0, 0)):
+    def __init__(self, world_size, colour=(0, 0, 0)):
         """Creates a new person at a random location who will randomly roam
         within the given world size."""
         self.world_size = world_size
@@ -242,7 +361,7 @@ class Person:
         self.location = self._get_random_location()
         self.destination = self._get_random_location()
         self.viruses = set()
-        self.default_colour = default_colour  # Defaults to black
+        self.colour = colour  # Defaults to black
 
     def _get_random_location(self):
         """Returns a random (x, y) position within this person's world size.
@@ -266,10 +385,10 @@ class Person:
         """Returns the average of this person's viruses colours if they are
         infected, otherwise returns their default colour.
         """
-        colour = self.default_colour
+        colour = self.colour
 
         # Calculate the average colour of this person's virus(es)
-        if self.isInfected():
+        if self.is_infected():
             n = len(self.viruses)
             colours = [virus.colour for virus in self.viruses]
             colour = (sum(channel)/n for channel in zip(*colours))
@@ -285,8 +404,9 @@ class Person:
         turtle.dot(self.radius * 2, self.get_colour())
 
     def collides(self, other):
-        """Returns true if the distance between this person and the other person is
-        less than this + the other person's radius, otherwi se returns False.
+        """Returns true if the distance between this person and the other
+        person is less than this + the other person's radius, otherwise returns
+        False.
         """
         if other is self:
             return False
@@ -309,7 +429,7 @@ class Person:
         # otherwise add a new instance of the given virus to this person
         try:
             instance = (self.viruses - (self.viruses - set([virus]))).pop()
-            instance.resetDuration()
+            instance.reset_duration()
         except:
             self.viruses.add(virus)
 
@@ -351,19 +471,29 @@ class Person:
         viruses on this person.
         """
         if virus is None:
-            self.viruses.clear()
+            for v in self.viruses.copy():
+                v.cure(self)
         else:
-            self.viruses.discard(virus)
+            virus.cure(self)
 
-    def isInfected(self):
+    def is_infected(self):
         """Returns True if this person is infected, else False."""
         return bool(len(self.viruses))
+
+    def has_virus(self, virus):
+        """Returns True if this person has the given virus, else False."""
+        # Returns True if we can find an instance of this virus on this person,
+        # otherwise return False
+        try:
+            return bool((self.viruses - (self.viruses - set([virus]))).pop())
+        except:
+            return False
 
 
 class World:
     """This class represents a simulated world."""
 
-    def __init__(self, width, height, n, viruses=[RainbowVirus, ZebraVirus]):
+    def __init__(self, width, height, n, viruses=[ZombieVirus]):
         """Creates a new world centered on (0, 0) containing n people which
         simulates the spread of the given virus(es) through this world.
         """
@@ -414,7 +544,7 @@ class World:
         to_infect = {}
 
         # Loop through each infected person
-        for infected in (p for p in self.people if p.isInfected()):
+        for infected in (p for p in self.people if p.is_infected()):
             viruses = [v.__class__ for v in infected.viruses]
 
             # Add anyone who collided with this infected person to our dict of
@@ -443,7 +573,7 @@ class World:
         to_infect = {}
 
         # Loop through each infected person
-        for infected in (p for p in self.people if p.isInfected()):
+        for infected in (p for p in self.people if p.is_infected()):
             viruses = [v.__class__ for v in infected.viruses]
             cell = tuple(self.collision_table.hash(infected.location))
             nearby_people = self.collision_table.cells[cell]
@@ -473,7 +603,7 @@ class World:
             person.update()
         self.update_infections_fast()
         for method in self.on_update_methods:
-            method()
+            method(self)
 
     def draw(self):
         """Draws this world.
@@ -499,7 +629,7 @@ class World:
 
     def count_infected(self):
         """Returns the number of infected people in this world."""
-        return sum(True for person in self.people if person.isInfected())
+        return sum(True for person in self.people if person.is_infected())
 
 
 def draw_text(x, y, text, align='left', colour='black'):
