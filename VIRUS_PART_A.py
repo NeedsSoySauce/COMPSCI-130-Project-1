@@ -97,7 +97,12 @@ class ColourGradient:
 
 
 class Virus:
-    """A basic virus used to infect people."""
+    """Base class for all viruses used to infect people.
+
+    This class implements a __hash__ and __eq__ method designed to help
+    prevent a person from being infected by the same virus twice when stored
+    in a set (all instances are considered equal).
+    """
 
     def __init__(self, colour=(1, 0, 0), duration=7):
         """Creates a virus with the given colour and duration."""
@@ -105,13 +110,32 @@ class Virus:
         self.duration = duration
         self.remaining_duration = duration
 
+    def __hash__(self):
+        """Returns a hash representing this class."""
+        return hash(self.__class__.__name__)
+
+    def __eq__(self, other):
+        """Returns True when equating two instances of this class, otherwise
+        returns False."""
+        return isinstance(other, self.__class__)
+
+    def __repr__(self):
+        """Returns a string of this virus' name, id and remaining duration.
+
+        Primarily for debugging.
+        """
+        return (f'<{self.__class__.__name__} '
+                f'@ {id(self)} dur: '
+                f'{self.remaining_duration}/{self.duration}'
+                )
+
     def progress(self):
         """Reduces the remaining_duration of this virus."""
         self.remaining_duration -= 1
 
     def infect(self, person):
         """Infects the given person with a new instance of this virus."""
-        person.infect(Virus())
+        person.infect(self.__class__())
 
     def resetDuration(self):
         """Sets the duration of this virus to it's initial value."""
@@ -121,62 +145,110 @@ class Virus:
         """Returns True if this virus has run out, otherwise returns False.'"""
         return self.remaining_duration == 0
 
+    # @classmethod
+    # def on_world_update(cls):
+    #     """If defined, this classmethod will automatically be called at the
+    #     end of every world update/simulation (i.e. every hour)."""
+    #     pass
+
 
 class RainbowVirus(Virus):
-    """This virus infects people using the colours of the rainbow."""
+    """This virus infects people with a synchronised animation through the
+    colours of a rainbow.
+    """
 
     # Colour values for red, orange, yellow, green, blue, purple, violet
     colours = [(1, 0, 0), (1, 127/255, 0), (1, 1, 0), (0, 1, 0), (0, 0, 1),
                (75/255, 0, 130/255), (148/255, 0, 211/255)]
-    colours = ColourGradient.linear_sequence(colours, 50)
+    colours = ColourGradient.linear_sequence(colours, 20)
     colours += colours[1:-1][::-1]  # Smooth the transition from violet to red
     colour_count = len(colours)
     colour_index = 0
 
     def __init__(self, duration=14):
-        """Creates a new RainbowVirus using the current rainbow colour."""
+        """Creates a new RainbowVirus with the given duration."""
         self.duration = duration
         self.remaining_duration = duration
 
     @property
     def colour(self):
-        """Returns the current colour of the rainbow!"""
+        """Returns the current colour of the rainbow!
+
+        This attribute is decorated so that it can be accessed in the same way
+        as all other viruses.
+        """
         return RainbowVirus.colours[RainbowVirus.colour_index]
 
+    @colour.setter
+    def colour(self, value):
+        """Raises an AttributeError as instances of this virus cannot have
+        their colour changed.
+        """
+        raise AttributeError("can't set the colour of RainbowVirus instances")
+
     @classmethod
-    def next_colour(cls):
+    def on_world_update(cls):
         """Moves onto the next colour in the rainbow, starting again from the
         beginning once all the colours have been cycled through.
         """
         cls.colour_index = (cls.colour_index + 1) % cls.colour_count
 
-    def infect(self, person):
-        """Infects the given person with a new instance of this virus if they
-        haven't been infected by it yet, otherwise resets their virus' duration
+
+class ZebraVirus(Virus):
+    """People infected with this virus individually alternate between black
+    and light gray.
+    """
+
+    colours = [(0, 0, 0), (0.85, 0.85, 0.85)]  # Black and light gray
+    colour_index = 0
+
+    def __init__(self, duration=21):
+        self.duration = duration
+        self.remaining_duration = duration
+        self.colour_index = ZebraVirus.colour_index
+
+    @property
+    def colour(self):
+        """Returns the current colour of the rainbow!
+
+        This attribute is decorated so that it can be accessed in the same way
+        as all other viruses.
         """
-        if isinstance(person.virus, RainbowVirus):
-            person.virus.resetDuration()
-        else:
-            person.infect(RainbowVirus())
+        return ZebraVirus.colours[self.colour_index == ZebraVirus.colour_index]
+
+    @colour.setter
+    def colour(self, value):
+        """Raises an AttributeError as instances of this virus cannot have
+        their colour changed.
+        """
+        raise AttributeError("can't set the colour of ZebraVirus instances")
+
+    @classmethod
+    def on_world_update(cls):
+        """Moves onto the next colour, starting again from the beginning once
+        all the colours have been cycled through.
+        """
+        cls.colour_index = (cls.colour_index + 1) % 2
 
 
 class Person:
     """This class represents a person."""
 
-    def __init__(self, world_size):
+    def __init__(self, world_size, default_colour=(0, 0, 0)):
         """Creates a new person at a random location who will randomly roam
         within the given world size."""
         self.world_size = world_size
         self.radius = 7
         self.location = self._get_random_location()
         self.destination = self._get_random_location()
-        self.virus = None
+        self.viruses = set()
+        self.default_colour = default_colour  # Defaults to black
 
     def _get_random_location(self):
         """Returns a random (x, y) position within this person's world size.
 
         The returned position will not be within 1 radius of the edge of this
-        person'sworld.
+        person's world.
         """
 
         # Adjust coordinates to start from the top-left corner of the world
@@ -190,25 +262,31 @@ class Person:
 
         return x, y
 
-    def draw(self):
-        """Draws this person as a coloured dot at their current location.
-
-        The person will be drawn in their virus' colour if they are infected,
-        otherwise they will be drawn in black.
+    def get_colour(self):
+        """Returns the average of this person's viruses colours if they are
+        infected, otherwise returns their default colour.
         """
+        colour = self.default_colour
+
+        # Calculate the average colour of this person's virus(es)
+        if self.isInfected():
+            n = len(self.viruses)
+            colours = [virus.colour for virus in self.viruses]
+            colour = (sum(channel)/n for channel in zip(*colours))
+
+        return colour
+
+    def draw(self):
+        """Draws this person as a coloured dot at their current location."""
 
         turtle.penup()  # Ensure nothing is drawn while moving
 
-        person_colour = (0, 0, 0)  # Black
-        if self.isInfected():
-            person_colour = self.virus.colour
-
         turtle.setpos(self.location)
-        turtle.dot(self.radius * 2, person_colour)
+        turtle.dot(self.radius * 2, self.get_colour())
 
     def collides(self, other):
         """Returns true if the distance between this person and the other person is
-        less than this + the other person's radius, otherwise returns False.
+        less than this + the other person's radius, otherwi se returns False.
         """
         if other is self:
             return False
@@ -223,8 +301,17 @@ class Person:
         return [person for person in list_of_others if self.collides(person)]
 
     def infect(self, virus):
-        """Infects this person with the given virus"""
-        self.virus = virus
+        """Infects this person with the given virus if they aren't already
+        infected by it, else refreshes the virus' duration on this person.
+        """
+
+        # Try and get the instance of the given virus on this person (if any),
+        # otherwise add a new instance of the given virus to this person
+        try:
+            instance = (self.viruses - (self.viruses - set([virus]))).pop()
+            instance.resetDuration()
+        except:
+            self.viruses.add(virus)
 
     def reached_destination(self):
         """Returns True if location is within 1 radius of destination,
@@ -234,9 +321,10 @@ class Person:
 
     def progress_illness(self):
         """Progress this person's virus, curing them if it's run out."""
-        self.virus.progress()
-        if self.virus.isCured():
-            self.cured()
+        for virus in self.viruses.copy():
+            virus.progress()
+            if virus.isCured():
+                self.cure(virus)
 
     def update(self):
         """Updates this person each hour.
@@ -248,8 +336,7 @@ class Person:
         self.move()
         if self.reached_destination():
             self.destination = self._get_random_location()
-        if self.isInfected():
-            self.progress_illness()
+        self.progress_illness()
 
     def move(self):
         """Moves this person radius / 2 towards their destination."""
@@ -259,96 +346,134 @@ class Person:
         turtle.forward(self.radius/2)
         self.location = turtle.pos()
 
-    def cured(self):
-        """Removes this person's virus."""
-        self.virus = None
+    def cure(self, virus=None):
+        """Removes the given virus from this person, otherwise removes all
+        viruses on this person.
+        """
+        if virus is None:
+            self.viruses.clear()
+        else:
+            self.viruses.discard(virus)
 
     def isInfected(self):
         """Returns True if this person is infected, else False."""
-        return self.virus is not None
+        return bool(len(self.viruses))
 
 
 class World:
     """This class represents a simulated world."""
 
-    def __init__(self, width, height, n):
-        """Creates a new world centered on (0, 0) containing n people."""
+    def __init__(self, width, height, n, viruses=[RainbowVirus, ZebraVirus]):
+        """Creates a new world centered on (0, 0) containing n people which
+        simulates the spread of the given virus(es) through this world.
+        """
         self.size = (width, height)
         self.hours = 0
         self.people = []
+        self.viruses = viruses
         self.collision_table = EfficientCollision(28)
-        for i in range(n):
+        for _ in range(n):
             self.add_person()
+
+        # Add the on_world_update method for each virus if they have one
+        self.on_update_methods = []
+        for cls in self.viruses:
+            if hasattr(cls, "on_world_update"):
+                self.on_update_methods.append(getattr(cls, "on_world_update"))
 
     def add_person(self):
         """Adds a new person to this world."""
         self.people.append(Person(self.size))
 
     def infect_person(self):
-        """Infects a random person in this world with a virus.
+        """Infects a random person in this world with a random virus.
 
         It is possible for the chosen person to already be infected
         with a virus.
         """
 
+        # If this world has no viruses there's nothing to infect people with
+        if not len(self.viruses):
+            return
+
         rand_person = random.choice(self.people)
-        new_virus = RainbowVirus()
-        new_virus.infect(rand_person)
+        rand_virus = random.choice(self.viruses)()
+        rand_virus.infect(rand_person)
 
     def cure_all(self):
         """Cures all people in this world."""
         for person in self.people:
-            person.cured()
+            person.cure()
 
     def update_infections_slow(self):
         """Infect anyone in contact with an infected person."""
-        infected = (person for person in self.people if person.isInfected())
-        to_infect = set() 
 
-        # Anyone an infected person collides with will be infected
-        for person in infected:
-            to_infect.update(person.collision_list(self.people))
+        # Stores (key, value) pairs of the form (person, viruses), where:
+        # person = a person object who has collided with an infected person
+        # viruses = a set of the virus(es) to infect this person with
+        to_infect = {}
 
-        # Infect anyone who collided with an infected person
-        for person in to_infect:
-            new_virus = RainbowVirus()
-            new_virus.infect(person)
+        # Loop through each infected person
+        for infected in (p for p in self.people if p.isInfected()):
+            viruses = [v.__class__ for v in infected.viruses]
 
-        # If anyone was infected, change the colour
-        if len(to_infect):
-            RainbowVirus.next_colour()
+            # Add anyone who collided with this infected person to our dict of
+            # people to infect along with the viruses to infect them with
+            for person in infected.collision_list(self.people):
+                if person in to_infect:
+                    to_infect[person].update(viruses)
+                else:
+                    to_infect[person] = set(viruses)
+
+        # Infect anyone who collided with an infected person with the virus(es)
+        # of the people they collided with
+        for person, viruses in to_infect.items():
+            for virus in viruses:
+                virus().infect(person)
 
     def update_infections_fast(self):
-        """Infect anyone in contact with an infected person."""
+        """Infect anyone in contact with an infected person. Uses a spatial
+        hash table to speed up collision detection.
+        """
         self.collision_table.update(self.people)
 
-        infected = (person for person in self.people if person.isInfected())
-        to_infect = set()
+        # Stores (key, value) pairs of the form (person, viruses), where:
+        # person = a person object who has collided with an infected person
+        # viruses = a set of the virus(es) to infect this person with
+        to_infect = {}
 
-        # Anyone an infected person collides with will be infected
-        for person in infected:
-            cell = tuple(self.collision_table.hash(person.location))
+        # Loop through each infected person
+        for infected in (p for p in self.people if p.isInfected()):
+            viruses = [v.__class__ for v in infected.viruses]
+            cell = tuple(self.collision_table.hash(infected.location))
             nearby_people = self.collision_table.cells[cell]
-            to_infect.update(person.collision_list(nearby_people))
 
-        # Infect anyone who collided with an infected person
-        for person in to_infect:
-            new_virus = RainbowVirus()
-            new_virus.infect(person)
+            # Add anyone who collided with this infected person to our dict of
+            # people to infect along with the viruses to infect them with
+            for person in infected.collision_list(nearby_people):
+                if person in to_infect:
+                    to_infect[person].update(viruses)
+                else:
+                    to_infect[person] = set(viruses)
 
-        # If anyone was infected, change the colour
-        if len(to_infect):
-            RainbowVirus.next_colour()
+        # Infect anyone who collided with an infected person with the virus(es)
+        # of the people they collided with
+        for person, viruses in to_infect.items():
+            for virus in viruses:
+                virus().infect(person)
 
     def simulate(self):
         """Simulates one hour in this world.
         - Updates all people
         - Updates all infection transmissions
+        - Calls any update method(s) from this world's virus(es)
         """
         self.hours += 1
         for person in self.people:
             person.update()
         self.update_infections_fast()
+        for method in self.on_update_methods:
+            method()
 
     def draw(self):
         """Draws this world.
