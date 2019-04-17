@@ -113,6 +113,21 @@ class Virus:
         self.duration = duration
         self.remaining_duration = duration
 
+    # @classmethod
+    # def on_world_update(cls, world):
+    #     """If defined, this classmethod will automatically be called at the
+    #     end of every world update/simulation (i.e. every hour) and is passed
+    #     the current world state.
+    #     """
+    #     pass
+
+    @classmethod
+    def reset_class(cls):
+        """This method is called when a virus is added to a world and can be
+        ensure it is correctly reset to it's initial state.
+        """
+        pass
+
     def __hash__(self):
         """Returns a hash representing this class' name."""
         return hash(self.__class__.__name__)
@@ -151,14 +166,6 @@ class Virus:
     def cure(self, person):
         """Removes this virus from the given person."""
         person.viruses.discard(self)
-
-    # @classmethod
-    # def on_world_update(cls, world):
-    #     """If defined, this classmethod will automatically be called at the
-    #     end of every world update/simulation (i.e. every hour) and is passed
-    #     the current world state.
-    #     """
-    #     pass
 
 
 class RainbowVirus(Virus):
@@ -252,6 +259,10 @@ class ImmunisableVirus(Virus):
         super().__init__(infected_colour, duration)
         self.immune_colour = immune_colour
 
+    @classmethod
+    def reset_class(cls):
+        cls.immune.clear()
+
     def infect(self, person):
         """Infects the given person with a new instance of this virus."""
         if person not in ImmunisableVirus.immune:
@@ -320,6 +331,12 @@ class ZombieVirus(Virus):
                 virus.target = random.choice(cls.healthy)
             person.destination = virus.target.location
 
+    @classmethod
+    def reset_class(cls):
+        cls.infected.clear()
+        cls.healthy.clear()
+        cls.is_running = True
+
     @property
     def colour(self):
         """Returns idle_colour if this virus isn't chasing anyone, otherwise
@@ -358,17 +375,24 @@ class ZombieVirus(Virus):
 class SnakeVirus(Virus):
     """This virus forms a snake with those infected by it that chases after
     people who aren't infected.
+
+    In addition, the snake:
+    - Moves along one axis at a time.
+    - Can only go forward, turn left or turn right
+    - Can only infect people with it's head
     """
 
     head_colour = (1, 0, 0)
     body_colour = (0, 0, 1)
     infected = OrderedDict()
+    target = None
+    direction = (0, 0)
+    min_dist = 14
 
     def __init__(self, duration=-1):
         """Creates a new SnakeVirus with the given duration."""
         self.duration = duration
         self.remaining_duration = duration
-        self.target = None
 
     @classmethod
     def on_world_update(cls, world):
@@ -383,23 +407,63 @@ class SnakeVirus(Virus):
             if i != 0:
                 # Follow the person before them
                 person.destination = people[i-1].location
+                continue
 
+            # Go after someone who isn't infected (if there are any
+            # remaining)
+            if not len(cls.healthy):
+                continue
+
+            # If no target has been assigned or the target's been infected,
+            # assign a new target
+            if cls.target is None or cls.target.is_infected():
+                cls.target = random.choice(cls.healthy)
+
+            # Move the snake's head along one axis at a time
+
+            # Get the destination relative to the snake's head
+            vector = cls.get_vector_to_target(person)
+
+            magnitude = [abs(v) for v in vector]
+            direction = [m/v for m, v in zip(magnitude, vector)]
+
+            # Remove any direction opposite to what we currently have
+            for i, new_dir in enumerate(direction):
+                for old_dir in cls.direction:
+                    if (new_dir * -1) == old_dir:
+                        direction[i] == 0
+
+            # Keep only the vector which has the greatest magnitude and isn't
+            # opposite to the current head direction
+            if magnitude[0] > magnitude[1] and direction[0] != 0:
+                direction[1] = 0
             else:
-                # Go after someone who isn't infected (if there are any
-                # remaining)
-                if not len(cls.healthy):
-                    continue
+                direction[0] = 0
 
-                virus = cls.infected[person]
-                if virus.target is None or virus.target.is_infected():
-                    virus.target = random.choice(cls.healthy)
-                person.destination = virus.target.location
+            # Construct the vector for the next snake head destination
+            destination = []
+            for pos, new_dir in zip(person.location, direction):
+                destination.append(pos + (cls.min_dist * new_dir))
+            destination = tuple(destination)
+
+            cls.direction = direction
+            person.destination = destination
+
+    @classmethod
+    def reset_class(cls):
+        cls.infected.clear()
+        cls.target = None
+        cls.direction = (0, 0)
 
     @property
     def colour(self):
         """Returns head_colour if this virus is the 'head' of the snake,
         otherwise returns body_colour.
         """
+
+        # Debugging
+        if SnakeVirus.target is not None:
+            SnakeVirus.target.colour = (0, 1, 0)
 
         # Get the first virus in SnakeVirus.infected
         for first in SnakeVirus.infected.values():
@@ -414,6 +478,24 @@ class SnakeVirus(Virus):
         """
         SnakeVirus.head_colour = value_dict['head_colour']
         SnakeVirus.body_colour = value_dict['body_colour']
+
+    @classmethod
+    def get_vector_to_target(cls, person):
+        """Returns a tuple representing a vector from the given person
+        to the target of SnakeVirus.
+        """
+        vector = []
+
+        for v1, v2 in zip(person.location, cls.target.location):
+            if (v1 * v2) > 0:  # If v1 and v2 have the same sign
+                new_val = abs(abs(v1) - abs(v2))
+            else:
+                new_val = abs(v1) + abs(v2)
+            if v1 > v2:
+                new_val *= -1
+            vector.append(new_val)
+
+        return tuple(vector)
 
     def infect(self, person):
         """Infects the given person with a new instance of this virus and adds
@@ -450,18 +532,19 @@ class Person:
     def _get_random_location(self):
         """Returns a random (x, y) position within this person's world size.
 
-        The returned position will not be within 1 radius of the edge of this
-        person's world.
+        The returned position will be no closer than 1 radius of the edge of
+        this person's world (assuming there is enough room in the world to
+        contain this person).
         """
 
         # Adjust coordinates to start from the top-left corner of the world
         width, height = self.world_size
-        x = 0 - (width // 2)
+        x = 0 - width // 2
         y = height // 2
 
         # Generate a random (x, y) coordinate within the world's borders
-        x += random.uniform(self.radius + 1, width - self.radius)
-        y -= random.uniform(self.radius + 1, height - self.radius)
+        x += random.uniform(self.radius, width - self.radius)
+        y -= random.uniform(self.radius, height - self.radius)
 
         return x, y
 
@@ -475,9 +558,9 @@ class Person:
         if self.is_infected():
             n = len(self.viruses)
             colours = [virus.colour for virus in self.viruses]
-            colour = (sum(channel)/n for channel in zip(*colours))
+            colour = [sum(channel)/n for channel in zip(*colours)]
 
-        return colour
+        return tuple(colour)
 
     def draw(self):
         """Draws this person as a coloured dot at their current location."""
@@ -543,11 +626,20 @@ class Person:
         self.progress_illness()
 
     def move(self):
-        """Moves this person radius / 2 towards their destination."""
+        """Moves this person radius / 2 towards their destination. If their
+        destination is closer than radius / 2, they will move to their
+        destination instead.
+        """
         turtle.penup()  # Ensure nothing is drawn while moving
         turtle.setpos(self.location)
+
+        distance = distance_2d(self.location, self.destination)
+        half_radius = self.radius / 2
+        if distance > half_radius:
+            distance = half_radius
+
         turtle.setheading(turtle.towards(self.destination))
-        turtle.forward(self.radius/2)
+        turtle.forward(distance)
         self.location = turtle.pos()
 
     def cure(self, virus=None):
@@ -579,10 +671,10 @@ class World:
 
     def __init__(self, width, height, n,
                  viruses=[
-                     RainbowVirus,
-                     ZebraVirus,
-                     ImmunisableVirus,
-                     ZombieVirus,
+                    #  RainbowVirus,
+                    #  ZebraVirus,
+                    #  ImmunisableVirus,
+                    #  ZombieVirus,
                      SnakeVirus
                      ]
                  ):
@@ -597,9 +689,11 @@ class World:
         for _ in range(n):
             self.add_person()
 
-        # Add the on_world_update method for each virus if they have one
+        # Reset each virus and add the on_world_update method for each virus if
+        # they have one
         self.on_update_methods = []
         for cls in self.viruses:
+            cls.reset_class()
             if hasattr(cls, "on_world_update"):
                 self.on_update_methods.append(getattr(cls, "on_world_update"))
 
@@ -790,14 +884,14 @@ class GraphicalWorld:
         self.HEIGHT = 600
         self.TITLE = 'COMPSCI 130 Project One'
         self.MARGIN = 50  # gap around each side
-        self.PEOPLE = 200  # number of people in the simulation
+        self.PEOPLE = 20  # number of people in the simulation
         self.framework = AnimationFramework(
             self.WIDTH, self.HEIGHT, self.TITLE)
 
         self.framework.add_key_action(self.setup, 'z')
         self.framework.add_key_action(self.infect, 'x')
         self.framework.add_key_action(self.cure, 'c')
-        self.framework.add_key_action(self.toggle_simulation, ' ')
+        self.framework.add_key_action(self.toggle_simulation, " ")
         self.framework.add_tick_action(self.next_turn)
 
         self.world = None
