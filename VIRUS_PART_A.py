@@ -361,10 +361,10 @@ class SnakeVirus(Virus):
 
     head_colour = (1, 0, 0)
     body_colour = (0, 0, 1)
-
     infected = OrderedDict()
 
     def __init__(self, duration=-1):
+        """Creates a new SnakeVirus with the given duration."""
         self.duration = duration
         self.remaining_duration = duration
         self.target = None
@@ -425,7 +425,7 @@ class SnakeVirus(Virus):
             SnakeVirus.infected[person] = instance
 
     def cure(self, person):
-        """Removes this virus from the given person and removes them from this
+        """Removes this virus from the given person and removes them from
         SnakeVirus' list of infected people.
         """
         person.viruses.discard(self)
