@@ -9,6 +9,7 @@
 import turtle
 import random
 from math import ceil
+from collections import OrderedDict
 
 
 class EfficientCollision:
@@ -271,7 +272,7 @@ class ZombieVirus(Virus):
 
     infected = {}  # Stores (person, virus) pairs
     healthy = []
-    running = True
+    is_running = True
 
     def __init__(self, idle_colour=(0.5, 0, 0), chase_colour=(1, 0, 0),
                  duration=-1):
@@ -296,20 +297,20 @@ class ZombieVirus(Virus):
         #   converging on the position of the last healthy person
         # - Prevent the rest of this method from executing until there
         #   are healthy people to target
-        if not cls.healthy and cls.running:
+        if not cls.healthy and cls.is_running:
             for person, virus in cls.infected.items():
                 person.destination = person._get_random_location()
                 virus.target = None
-            cls.running = False
+            cls.is_running = False
             return
 
         # If healthy people appear while this virus has stopped then this
         # virus can start up again and try to infect them
-        elif cls.healthy and not cls.running:
-            cls.running = True
+        elif cls.healthy and not cls.is_running:
+            cls.is_running = True
 
         # There's nothing left to infect
-        elif not cls.running:
+        elif not cls.is_running:
             return
 
         # Assign targets and destinations to each infected person
@@ -351,6 +352,94 @@ class ZombieVirus(Virus):
         """
         person.viruses.discard(self)
         del ZombieVirus.infected[person]
+
+
+class SnakeVirus(Virus):
+    """This virus forms a snake with those infected by it that chases after
+    people who aren't infected.
+    """
+
+    head_colour = (1, 0, 0)
+
+    # body_colours = [(1, 0, 0), (1, 127/255, 0), (1, 1, 0), (0, 1, 0),
+    #                 (0, 0, 1), (75/255, 0, 130/255), (148/255, 0, 211/255)]
+    # body_colours = ColourGradient.linear_sequence(colours, 20)
+    # body_colours += colours[1:-1][::-1]  # Smoothen transition backwards
+    # body_colours_count = len(body_colours)
+    body_colour = (0, 0, 1)
+
+    infected = OrderedDict()
+
+    def __init__(self, duration=-1):
+        self.duration = duration
+        self.remaining_duration = duration
+        self.target = None
+
+    @classmethod
+    def on_world_update(cls, world):
+        """Updates the list of infected people used by this class to
+        tell it's people where to go.
+        """
+        cls.healthy = [p for p in world.people if not p.is_infected()]
+
+        people = list(cls.infected.keys())
+        for i, person in enumerate(people):
+
+            if i != 0:
+                # Follow the person before them
+                person.destination = people[i-1].location
+
+            else:
+                # Go after someone who isn't infected (if there are any
+                # remaining)
+                if not len(cls.healthy):
+                    continue
+
+                virus = cls.infected[person]
+                if virus.target is None or virus.target.is_infected():
+                    virus.target = random.choice(cls.healthy)
+                person.destination = virus.target.location
+
+    @property
+    def colour(self):
+        """Returns head_colour if this virus is the 'head' of the snake,
+        otherwise returns body_colour.
+        """
+
+        # Get the first virus in SnakeVirus.infected
+        for first in SnakeVirus.infected.values():
+            if self is first:
+                return self.head_colour
+
+            # Get the colour in the rainbow for this virus' position in the
+            # snake
+            # pos = SnakeVirus.infected
+            return self.body_colour
+
+    @colour.setter
+    def colour(self, value_dict):
+        """Given a dict with keys head_colour and body_colour, assigns their
+        values to this instances corresponding colours.
+        """
+        SnakeVirus.head_colour = value_dict['head_colour']
+        SnakeVirus.body_colour = value_dict['body_colour']
+
+    def infect(self, person):
+        """Infects the given person with a new instance of this virus and adds
+        them to SnakeVirus' list of infected people if they don't already have
+        this virus.
+        """
+        if not person.has_virus(self):
+            instance = self.__class__()
+            person.infect(instance)
+            SnakeVirus.infected[person] = instance
+
+    def cure(self, person):
+        """Removes this virus from the given person and removes them from this
+        SnakeVirus' list of infected people.
+        """
+        person.viruses.discard(self)
+        del SnakeVirus.infected[person]
 
 
 class Person:
@@ -501,7 +590,8 @@ class World:
                      RainbowVirus,
                      ZebraVirus,
                      ImmunisableVirus,
-                     ZombieVirus
+                     ZombieVirus,
+                     SnakeVirus
                      ]
                  ):
         """Creates a new world centered on (0, 0) containing n people which
