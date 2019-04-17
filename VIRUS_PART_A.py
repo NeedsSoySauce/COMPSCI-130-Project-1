@@ -360,12 +360,6 @@ class SnakeVirus(Virus):
     """
 
     head_colour = (1, 0, 0)
-
-    # body_colours = [(1, 0, 0), (1, 127/255, 0), (1, 1, 0), (0, 1, 0),
-    #                 (0, 0, 1), (75/255, 0, 130/255), (148/255, 0, 211/255)]
-    # body_colours = ColourGradient.linear_sequence(colours, 20)
-    # body_colours += colours[1:-1][::-1]  # Smoothen transition backwards
-    # body_colours_count = len(body_colours)
     body_colour = (0, 0, 1)
 
     infected = OrderedDict()
@@ -410,10 +404,6 @@ class SnakeVirus(Virus):
         for first in SnakeVirus.infected.values():
             if self is first:
                 return self.head_colour
-
-            # Get the colour in the rainbow for this virus' position in the
-            # snake
-            # pos = SnakeVirus.infected
             return self.body_colour
 
     @colour.setter
