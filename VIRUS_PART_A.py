@@ -39,7 +39,8 @@ class EfficientCollision:
         return xmin, ymin, xmax, ymax
 
     def add(self, person):
-        """Adds the given person to all cells within their radius."""
+        """Adds the given person to all cells within their axis-aligned bounding box.
+        """
         xmin, ymin, xmax, ymax = self.hash(self.get_bounding_box(person))
 
         # Add this person to all cells within their axis-aligned bounding box
@@ -113,7 +114,7 @@ class Virus:
         self.remaining_duration = duration
 
     def __hash__(self):
-        """Returns a hash representing this class."""
+        """Returns a hash representing this class' name."""
         return hash(self.__class__.__name__)
 
     def __eq__(self, other):
@@ -132,7 +133,7 @@ class Virus:
                 )
 
     def progress(self):
-        """Reduces the remaining_duration of this virus."""
+        """Reduces the remaining duration of this virus by 1."""
         self.remaining_duration -= 1
 
     def infect(self, person):
@@ -140,11 +141,11 @@ class Virus:
         person.infect(self.__class__())
 
     def reset_duration(self):
-        """Sets the duration of this virus to it's initial value."""
+        """Sets the remaining duration of this virus to it's initial value."""
         self.remaining_duration = self.duration
 
     def isCured(self):
-        """Returns True if this virus has run out, otherwise returns False.'"""
+        """Returns True if this virus has run out, otherwise returns False."""
         return self.remaining_duration == 0
 
     def cure(self, person):
@@ -409,7 +410,7 @@ class SnakeVirus(Virus):
     @colour.setter
     def colour(self, value_dict):
         """Given a dict with keys head_colour and body_colour, assigns their
-        values to this instances corresponding colours.
+        values to this class' corresponding colours.
         """
         SnakeVirus.head_colour = value_dict['head_colour']
         SnakeVirus.body_colour = value_dict['body_colour']
@@ -437,7 +438,8 @@ class Person:
 
     def __init__(self, world_size, colour=(0, 0, 0)):
         """Creates a new person at a random location who will randomly roam
-        within the given world size."""
+        within the given world size.
+        """
         self.world_size = world_size
         self.radius = 7
         self.location = self._get_random_location()
