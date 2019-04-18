@@ -8,7 +8,7 @@
 
 import turtle
 import random
-from math import ceil
+from math import ceil, copysign
 from collections import OrderedDict
 
 
@@ -378,16 +378,13 @@ class SnakeVirus(Virus):
 
     In addition, the snake:
     - Moves along one axis at a time.
-    - Can only go forward, turn left or turn right
-    - Can only infect people with it's head
     """
 
     head_colour = (1, 0, 0)
     body_colour = (0, 0, 1)
+    target_colour = (0, 1, 0)
     infected = OrderedDict()
     target = None
-    direction = (0, 0)
-    min_dist = 14
 
     def __init__(self, duration=-1):
         """Creates a new SnakeVirus with the given duration."""
@@ -397,7 +394,8 @@ class SnakeVirus(Virus):
     @classmethod
     def on_world_update(cls, world):
         """Updates the list of infected people used by this class to
-        tell it's people where to go.
+        tell it's people where to go and issues orders to everyone
+        infected by this virus.
         """
         cls.healthy = [p for p in world.people if not p.is_infected()]
 
@@ -409,50 +407,41 @@ class SnakeVirus(Virus):
                 person.destination = people[i-1].location
                 continue
 
-            # Go after someone who isn't infected (if there are any
-            # remaining)
-            if not len(cls.healthy):
-                continue
-
-            # If no target has been assigned or the target's been infected,
-            # assign a new target
-            if cls.target is None or cls.target.is_infected():
-                cls.target = random.choice(cls.healthy)
-
-            # Move the snake's head along one axis at a time
+            # Assign a new target if needed, otherwise, if there are no more
+            # healthy people to target, just wander around randomly
+            if cls.healthy:
+                if (cls.target is None or cls.target.is_infected()):
+                    cls.target = random.choice(cls.healthy)
+                vector = cls.get_destination_vector(
+                    person.location, cls.target.location
+                    )
+            else:
+                vector = cls.get_destination_vector(
+                    person.location, person.destination
+                    )
 
             # Get the destination relative to the snake's head
-            vector = cls.get_vector_to_target(person)
-
             magnitude = [abs(v) for v in vector]
-            direction = [m/v for m, v in zip(magnitude, vector)]
+            direction = [copysign(1, v) for v in vector]
 
-            # Remove any direction opposite to what we currently have
-            for i, new_dir in enumerate(direction):
-                for old_dir in cls.direction:
-                    if (new_dir * -1) == old_dir:
-                        direction[i] == 0
-
-            # Keep only the vector which has the greatest magnitude and isn't
-            # opposite to the current head direction
-            if magnitude[0] > magnitude[1] and direction[0] != 0:
+            # Keep only the component which has the greatest magnitude
+            if magnitude[0] > magnitude[1]:
                 direction[1] = 0
             else:
                 direction[0] = 0
 
             # Construct the vector for the next snake head destination
             destination = []
-            for pos, new_dir in zip(person.location, direction):
-                destination.append(pos + (cls.min_dist * new_dir))
-            destination = tuple(destination)
+            for pos, _dir, mag in zip(person.location, direction, magnitude):
+                destination.append(pos + (_dir * mag))
 
-            cls.direction = direction
-            person.destination = destination
+            person.destination = tuple(destination)
 
     @classmethod
     def reset_class(cls):
         cls.infected.clear()
         cls.target = None
+        cls.destination = None
         cls.direction = (0, 0)
 
     @property
@@ -461,9 +450,8 @@ class SnakeVirus(Virus):
         otherwise returns body_colour.
         """
 
-        # Debugging
         if SnakeVirus.target is not None:
-            SnakeVirus.target.colour = (0, 1, 0)
+            SnakeVirus.target.colour = SnakeVirus.target_colour
 
         # Get the first virus in SnakeVirus.infected
         for first in SnakeVirus.infected.values():
@@ -487,6 +475,24 @@ class SnakeVirus(Virus):
         vector = []
 
         for v1, v2 in zip(person.location, cls.target.location):
+            if (v1 * v2) > 0:  # If v1 and v2 have the same sign
+                new_val = abs(abs(v1) - abs(v2))
+            else:
+                new_val = abs(v1) + abs(v2)
+            if v1 > v2:
+                new_val *= -1
+            vector.append(new_val)
+
+        return tuple(vector)
+
+    @staticmethod
+    def get_destination_vector(origin, destination):
+        """Returns a tuple representing a vector from the given person
+        to the target of SnakeVirus.
+        """
+        vector = []
+
+        for v1, v2 in zip(origin, destination):
             if (v1 * v2) > 0:  # If v1 and v2 have the same sign
                 new_val = abs(abs(v1) - abs(v2))
             else:
@@ -681,6 +687,10 @@ class World:
         """Creates a new world centered on (0, 0) containing n people which
         simulates the spread of the given virus(es) through this world.
         """
+
+        if width % 2 != 0 or height % 2 != 0:
+            raise ValueError("width and height must be even")
+
         self.size = (width, height)
         self.hours = 0
         self.people = []
@@ -884,7 +894,7 @@ class GraphicalWorld:
         self.HEIGHT = 600
         self.TITLE = 'COMPSCI 130 Project One'
         self.MARGIN = 50  # gap around each side
-        self.PEOPLE = 20  # number of people in the simulation
+        self.PEOPLE = 200  # number of people in the simulation
         self.framework = AnimationFramework(
             self.WIDTH, self.HEIGHT, self.TITLE)
 
