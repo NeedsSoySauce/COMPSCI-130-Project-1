@@ -5,7 +5,6 @@
 # UPI: falb418
 # ID: 606316306
 
-
 import turtle
 import random
 from math import ceil, copysign
@@ -24,7 +23,7 @@ class EfficientCollision:
 
     def hash(self, location):
         """Returns the cell location which contains the given location."""
-        return [int(coord/self.cell_size) for coord in location]
+        return [int(coord / self.cell_size) for coord in location]
 
     def get_bounding_box(self, person):
         """Returns the axis-aligned bounding box for the given person
@@ -33,8 +32,8 @@ class EfficientCollision:
         x, y = person.location
         radius = person.radius
 
-        xmin, xmax = int(x-radius), int(ceil(x+radius))
-        ymin, ymax = int(y-radius), int(ceil(y+radius))
+        xmin, xmax = int(x - radius), int(ceil(x + radius))
+        ymin, ymax = int(y - radius), int(ceil(y + radius))
 
         return xmin, ymin, xmax, ymax
 
@@ -44,8 +43,8 @@ class EfficientCollision:
         xmin, ymin, xmax, ymax = self.hash(self.get_bounding_box(person))
 
         # Add this person to all cells within their axis-aligned bounding box
-        for x in range(xmin, xmax+1):
-            for y in range(ymin, ymax+1):
+        for x in range(xmin, xmax + 1):
+            for y in range(ymin, ymax + 1):
                 if (x, y) in self.cells:
                     self.cells[(x, y)].append(person)
                 else:
@@ -87,13 +86,13 @@ class ColourGradient:
         # 2. Divide each change by n + 1 so that we can add it to each
         #    subsequent interpolated colour until we fall one addition short
         #    of the end colour (which we already have)
-        step = [(e-s)/(n+1) for s, e in zip(start, end)]
+        step = [(e - s) / (n + 1) for s, e in zip(start, end)]
 
         # 3. Repeatedly add our step to the start colour to get each subsequent
         #    interpolated colour
         interpolated = start[:]
         for _ in range(n):
-            interpolated = [i+s for i, s in zip(interpolated, step)]
+            interpolated = [i + s for i, s in zip(interpolated, step)]
             gradient.append(interpolated)
 
         return gradient + [end]
@@ -144,8 +143,7 @@ class Virus:
         """
         return (f'<{self.__class__.__name__} '
                 f'@ {id(self)} dur: '
-                f'{self.remaining_duration}/{self.duration}'
-                )
+                f'{self.remaining_duration}/{self.duration}')
 
     def progress(self):
         """Reduces the remaining duration of this virus by 1."""
@@ -174,8 +172,8 @@ class RainbowVirus(Virus):
     """
 
     # Colour values for red, orange, yellow, green, blue, purple, violet
-    colours = [(1, 0, 0), (1, 127/255, 0), (1, 1, 0), (0, 1, 0), (0, 0, 1),
-               (75/255, 0, 130/255), (148/255, 0, 211/255)]
+    colours = [(1, 0, 0), (1, 127 / 255, 0), (1, 1, 0), (0, 1, 0), (0, 0, 1),
+               (75 / 255, 0, 130 / 255), (148 / 255, 0, 211 / 255)]
     colours = ColourGradient.linear_sequence(colours, 20)
     colours += colours[1:-1][::-1]  # Smooth the transition from violet to red
     colour_count = len(colours)
@@ -253,7 +251,9 @@ class ImmunisableVirus(Virus):
 
     immune = set()
 
-    def __init__(self, immune_colour=(0, 1, 0), infected_colour=(1, 0, 0),
+    def __init__(self,
+                 immune_colour=(0, 1, 0),
+                 infected_colour=(1, 0, 0),
                  duration=28):
         """Creates a new ImmunisableVirus with the given attributes."""
         super().__init__(infected_colour, duration)
@@ -287,7 +287,9 @@ class ZombieVirus(Virus):
     healthy = []
     is_running = True
 
-    def __init__(self, idle_colour=(0.5, 0, 0), chase_colour=(1, 0, 0),
+    def __init__(self,
+                 idle_colour=(0.5, 0, 0),
+                 chase_colour=(1, 0, 0),
                  duration=-1):
         """Creates a new ZombieVirus with the given attributes."""
         self.idle_colour = idle_colour
@@ -408,7 +410,7 @@ class SnakeVirus(Virus):
 
             if i != 0:
                 # Follow the person before them
-                person.destination = people[i-1].location
+                person.destination = people[i - 1].location
                 continue
 
             # Assign a new target if needed, otherwise, if there are no more
@@ -416,13 +418,11 @@ class SnakeVirus(Virus):
             if cls.healthy:
                 if (cls.target is None or cls.target.is_infected()):
                     cls.target = random.choice(cls.healthy)
-                vector = cls.get_destination_vector(
-                    person.location, cls.target.location
-                    )
+                vector = cls.get_destination_vector(person.location,
+                                                    cls.target.location)
             else:
-                vector = cls.get_destination_vector(
-                    person.location, person.destination
-                    )
+                vector = cls.get_destination_vector(person.location,
+                                                    person.destination)
 
             vector = list(vector)
 
@@ -544,7 +544,7 @@ class Person:
         if self.is_infected():
             n = len(self.viruses)
             colours = [virus.colour for virus in self.viruses]
-            colour = [sum(channel)/n for channel in zip(*colours)]
+            colour = [sum(channel) / n for channel in zip(*colours)]
 
         return tuple(colour)
 
@@ -653,15 +653,18 @@ class Person:
 class World:
     """This class represents a simulated world."""
 
-    def __init__(self, width, height, n,
-                 viruses=[
-                     RainbowVirus,
-                    #  ZebraVirus,
-                    #  ImmunisableVirus,
-                     ZombieVirus,
-                     SnakeVirus
-                     ]
-                 ):
+    def __init__(
+            self,
+            width,
+            height,
+            n,
+            viruses=[
+                RainbowVirus,
+                # ZebraVirus,
+                # ImmunisableVirus,
+                # ZombieVirus,
+                # SnakeVirus
+            ]):
         """Creates a new world centered on (0, 0) containing n people which
         simulates the spread of the given virus(es) through this world.
         """
@@ -828,7 +831,11 @@ def draw_rect(x, y, width, height):
     draw_line(x, y, height, reverse=True)
 
 
-def draw_line(x, y, length, orientation="vertical", reverse=False,
+def draw_line(x,
+              y,
+              length,
+              orientation="vertical",
+              reverse=False,
               colour='black'):
     """Draws a line starting from the top/left."""
     if orientation == "vertical":
@@ -873,8 +880,8 @@ class GraphicalWorld:
         self.TITLE = 'COMPSCI 130 Project One'
         self.MARGIN = 50  # gap around each side
         self.PEOPLE = 200  # number of people in the simulation
-        self.framework = AnimationFramework(
-            self.WIDTH, self.HEIGHT, self.TITLE)
+        self.framework = AnimationFramework(self.WIDTH, self.HEIGHT,
+                                            self.TITLE)
 
         self.framework.add_key_action(self.setup, 'z')
         self.framework.add_key_action(self.infect, 'x')
@@ -888,10 +895,8 @@ class GraphicalWorld:
         """ Reset the simulation to the initial state """
         print('resetting the world')
         self.framework.stop_simulation()
-        self.world = World(
-            self.WIDTH - self.MARGIN * 2,
-            self.HEIGHT - self.MARGIN * 2,
-            self.PEOPLE)
+        self.world = World(self.WIDTH - self.MARGIN * 2,
+                           self.HEIGHT - self.MARGIN * 2, self.PEOPLE)
         self.world.draw()
 
     def infect(self):
