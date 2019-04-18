@@ -254,13 +254,14 @@ class ImmunisableVirus(Virus):
     immune = set()
 
     def __init__(self, immune_colour=(0, 1, 0), infected_colour=(1, 0, 0),
-                 duration=28): 
+                 duration=28):
         """Creates a new ImmunisableVirus with the given attributes."""
         super().__init__(infected_colour, duration)
         self.immune_colour = immune_colour
 
     @classmethod
     def reset_class(cls):
+        """Clear's this classes set of immune people."""
         cls.immune.clear()
 
     def infect(self, person):
@@ -333,6 +334,9 @@ class ZombieVirus(Virus):
 
     @classmethod
     def reset_class(cls):
+        """Clears this class' dict of infected people and list of healthy
+        people and set's it's running state to True.
+        """
         cls.infected.clear()
         cls.healthy.clear()
         cls.is_running = True
