@@ -377,19 +377,19 @@ class SnakeVirus(Virus):
     people who aren't infected.
 
     In addition, the snake:
-    - Moves along one axis at a time.
+    - Moves along one axis at a time
+    - Only infects people with it's head
     """
 
     head_colour = (1, 0, 0)
     body_colour = (0, 0, 1)
-    target_colour = (0, 1, 0)
     infected = OrderedDict()
     target = None
 
-    def __init__(self, duration=-1):
-        """Creates a new SnakeVirus with the given duration."""
-        self.duration = duration
-        self.remaining_duration = duration
+    def __init__(self):
+        """Creates a new SnakeVirus."""
+        self.duration = -1
+        self.remaining_duration = -1
 
     @classmethod
     def on_world_update(cls, world):
@@ -420,38 +420,50 @@ class SnakeVirus(Virus):
                     person.location, person.destination
                     )
 
-            # Get the destination relative to the snake's head
-            magnitude = [abs(v) for v in vector]
-            direction = [copysign(1, v) for v in vector]
+            vector = list(vector)
 
             # Keep only the component which has the greatest magnitude
-            if magnitude[0] > magnitude[1]:
-                direction[1] = 0
+            if abs(vector[0]) > abs(vector[1]):
+                vector[1] = 0
             else:
-                direction[0] = 0
+                vector[0] = 0
 
             # Construct the vector for the next snake head destination
             destination = []
-            for pos, _dir, mag in zip(person.location, direction, magnitude):
-                destination.append(pos + (_dir * mag))
+            for pos, component in zip(person.location, vector):
+                destination.append(pos + component)
 
             person.destination = tuple(destination)
 
     @classmethod
     def reset_class(cls):
+        """Clears this class' target and list of infected people."""
         cls.infected.clear()
         cls.target = None
-        cls.destination = None
-        cls.direction = (0, 0)
+
+    @staticmethod
+    def get_destination_vector(origin, destination):
+        """Returns a tuple representing a vector from the given origin to the
+        given destination.
+        """
+        vector = []
+
+        for v1, v2 in zip(origin, destination):
+            if (v1 * v2) > 0:  # If v1 and v2 have the same sign
+                new_val = abs(abs(v1) - abs(v2))
+            else:
+                new_val = abs(v1) + abs(v2)
+            if v1 > v2:
+                new_val *= -1
+            vector.append(new_val)
+
+        return tuple(vector)
 
     @property
     def colour(self):
         """Returns head_colour if this virus is the 'head' of the snake,
         otherwise returns body_colour.
         """
-
-        if SnakeVirus.target is not None:
-            SnakeVirus.target.colour = SnakeVirus.target_colour
 
         # Get the first virus in SnakeVirus.infected
         for first in SnakeVirus.infected.values():
@@ -466,42 +478,6 @@ class SnakeVirus(Virus):
         """
         SnakeVirus.head_colour = value_dict['head_colour']
         SnakeVirus.body_colour = value_dict['body_colour']
-
-    @classmethod
-    def get_vector_to_target(cls, person):
-        """Returns a tuple representing a vector from the given person
-        to the target of SnakeVirus.
-        """
-        vector = []
-
-        for v1, v2 in zip(person.location, cls.target.location):
-            if (v1 * v2) > 0:  # If v1 and v2 have the same sign
-                new_val = abs(abs(v1) - abs(v2))
-            else:
-                new_val = abs(v1) + abs(v2)
-            if v1 > v2:
-                new_val *= -1
-            vector.append(new_val)
-
-        return tuple(vector)
-
-    @staticmethod
-    def get_destination_vector(origin, destination):
-        """Returns a tuple representing a vector from the given person
-        to the target of SnakeVirus.
-        """
-        vector = []
-
-        for v1, v2 in zip(origin, destination):
-            if (v1 * v2) > 0:  # If v1 and v2 have the same sign
-                new_val = abs(abs(v1) - abs(v2))
-            else:
-                new_val = abs(v1) + abs(v2)
-            if v1 > v2:
-                new_val *= -1
-            vector.append(new_val)
-
-        return tuple(vector)
 
     def infect(self, person):
         """Infects the given person with a new instance of this virus and adds
