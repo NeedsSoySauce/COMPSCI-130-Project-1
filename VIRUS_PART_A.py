@@ -644,8 +644,6 @@ class Person:
 
     def has_virus(self, virus):
         """Returns True if this person has the given virus, else False."""
-        # Returns True if we can find an instance of this virus on this person,
-        # otherwise return False
         try:
             return bool((self.viruses - (self.viruses - set([virus]))).pop())
         except:
@@ -657,10 +655,10 @@ class World:
 
     def __init__(self, width, height, n,
                  viruses=[
-                    #  RainbowVirus,
+                     RainbowVirus,
                     #  ZebraVirus,
                     #  ImmunisableVirus,
-                    #  ZombieVirus,
+                     ZombieVirus,
                      SnakeVirus
                      ]
                  ):
