@@ -12,7 +12,7 @@ from collections import OrderedDict
 
 
 class EfficientCollision:
-    """Used to create a spatial hash table to perform collision detection."""
+    """Implements a spatial hash table to perform collision detection."""
 
     def __init__(self, cell_size):
         """Initializes an empty spatial hash table with square cells using
@@ -26,8 +26,8 @@ class EfficientCollision:
         return [int(coord / self.cell_size) for coord in location]
 
     def get_bounding_box(self, person):
-        """Returns the axis-aligned bounding box for the given person
-        represented by the min and max coordinates along each plane.
+        """Returns the axis-aligned bounding box for the given personx
+        represented by the min and max coordinates along the x and y axes.
         """
         x, y = person.location
         radius = person.radius
@@ -42,7 +42,6 @@ class EfficientCollision:
         """
         xmin, ymin, xmax, ymax = self.hash(self.get_bounding_box(person))
 
-        # Add this person to all cells within their axis-aligned bounding box
         for x in range(xmin, xmax + 1):
             for y in range(ymin, ymax + 1):
                 if (x, y) in self.cells:
@@ -51,23 +50,31 @@ class EfficientCollision:
                     self.cells[(x, y)] = [person]
 
     def update(self, people):
-        """Updates the collision table using the given people."""
-        self.cells = {}
+        """Clears the hash table and then adds the given people to it."""
+        self.cells.clear()
         for person in people:
             self.add(person)
 
 
 class ColourGradient:
-    """Used to contain functions related to generating a gradient between two
-    or more colours."""
+    """Contains functions related to generating a gradient between two
+    or more colours.
+    """
 
     @staticmethod
     def linear_sequence(colours, n):
         """Returns a list representing a linear colour gradient with n
-        interpolated colours inbetween each colour in the given colours.
+        interpolated colours in between each colour in the given ordered
+        list of colours.
+
+        Each colour in colours should should be a list or tuple of colour
+        channel values weighted in the same way. e.g. (1.0, 0.0, 0.0) for red
+
+        Raises:
+            ValueError: cannot create a gradient with < 2 colours."
         """
         if len(colours) < 2:
-            raise ValueError("Cannot create a gradient with < 2 colours.")
+            raise ValueError("cannot create a gradient with < 2 colours.")
 
         gradient = [colours[0]]
         for colour in colours[1:]:
@@ -78,7 +85,11 @@ class ColourGradient:
     @staticmethod
     def linear(start, end, n):
         """Returns a list representing a linear colour gradient with n
-        interpolated colours inbetween the given start to end colours.
+        interpolated colours in between the given start to end colours.
+
+        The start and end colours should be a list or tuple of colour channel
+        values weighted in the same way. e.g. (1.0, 0.0, 0.0) for red
+
         """
         gradient = [start]
 
@@ -283,17 +294,14 @@ class ZombieVirus(Virus):
     infected.
     """
 
+    idle_colour = (0.5, 0, 0)
+    chase_colour = (1, 0, 0)
     infected = {}  # Stores (person, virus) pairs
     healthy = []
     is_running = True
 
-    def __init__(self,
-                 idle_colour=(0.5, 0, 0),
-                 chase_colour=(1, 0, 0),
-                 duration=-1):
+    def __init__(self, duration=-1):
         """Creates a new ZombieVirus with the given attributes."""
-        self.idle_colour = idle_colour
-        self.chase_colour = chase_colour
         self.duration = duration
         self.remaining_duration = duration
         self.target = None
@@ -349,16 +357,15 @@ class ZombieVirus(Virus):
         returns chase_colour.
         """
         if self.target is None:
-            return self.idle_colour
-        return self.chase_colour
+            return ZombieVirus.idle_colour
+        return ZombieVirus.chase_colour
 
     @colour.setter
     def colour(self, value_dict):
-        """Given a dict with keys idle_colour and chase_colour, assigns their
-        values to this instances corresponding colours.
+        """Raises an AttributeError as instances of this virus cannot have
+        their colour changed.
         """
-        self.idle_colour = value_dict['idle_colour']
-        self.chase_colour = value_dict['chase_colour']
+        raise AttributeError("can't set the colour of ZombieVirus instances")
 
     def infect(self, person):
         """Infects the given person with a new instance of this virus and adds
@@ -465,7 +472,7 @@ class SnakeVirus(Virus):
 
     @property
     def colour(self):
-        """Returns head_colour if this virus is the 'head' of the snake,
+        """Returns head_colour if this virus is at the 'head' of the snake,
         otherwise returns body_colour.
         """
 
@@ -477,11 +484,10 @@ class SnakeVirus(Virus):
 
     @colour.setter
     def colour(self, value_dict):
-        """Given a dict with keys head_colour and body_colour, assigns their
-        values to this class' corresponding colours.
+        """Raises an AttributeError as instances of this virus cannot have
+        their colour changed.
         """
-        SnakeVirus.head_colour = value_dict['head_colour']
-        SnakeVirus.body_colour = value_dict['body_colour']
+        raise AttributeError("can't set the colour of SnakeVirus instances")
 
     def infect(self, person):
         """Infects the given person with a new instance of this virus and adds
@@ -502,25 +508,40 @@ class SnakeVirus(Virus):
 
 
 class Person:
-    """This class represents a person."""
+    """This class represents a person which randomly roams around and can be
+    infected by viruses.
+    """
 
-    def __init__(self, world_size, colour=(0, 0, 0)):
+    def __init__(self, world_size, radius=7, colour=(0, 0, 0)):
         """Creates a new person at a random location who will randomly roam
         within the given world size.
+
+        Args:
+            world_size (tuple): width and height of the world which this person
+                can roam around centered at (0, 0) on the default turtlescreen
+            radius: radius of this person in pixels
+            colour (tuple): an RGB colour where each channel is a float
+                between 0 and 1.0
+
+        Raises:
+            ValueError: world size is smaller than this person
         """
+
+        if any(dim < (radius * 2) for dim in world_size):
+            raise ValueError("world size is smaller than this person")
+
         self.world_size = world_size
-        self.radius = 7
+        self.radius = radius
         self.location = self._get_random_location()
         self.destination = self._get_random_location()
         self.viruses = set()
-        self.colour = colour  # Defaults to black
+        self.colour = colour
 
     def _get_random_location(self):
         """Returns a random (x, y) position within this person's world size.
 
-        The returned position will be no closer than 1 radius of the edge of
-        this person's world (assuming there is enough room in the world to
-        contain this person).
+        The returned position will be no closer than 1 radius to the edge of
+        this person's world.
         """
 
         # Adjust coordinates to start from the top-left corner of the world
@@ -550,9 +571,7 @@ class Person:
 
     def draw(self):
         """Draws this person as a coloured dot at their current location."""
-
         turtle.penup()  # Ensure nothing is drawn while moving
-
         turtle.setpos(self.location)
         turtle.dot(self.radius * 2, self.get_colour())
 
@@ -575,7 +594,7 @@ class Person:
 
     def infect(self, virus):
         """Infects this person with the given virus if they aren't already
-        infected by it, else refreshes the virus' duration on this person.
+        infected by it, otherwise refreshes the virus' duration on this person.
         """
 
         # Try and get the instance of the given virus on this person (if any),
@@ -587,13 +606,13 @@ class Person:
             self.viruses.add(virus)
 
     def reached_destination(self):
-        """Returns True if location is within 1 radius of destination,
-        otherwise returns False.
+        """Returns True if this person's location is within 1 radius of
+        destination, otherwise returns False.
         """
         return distance_2d(self.location, self.destination) <= self.radius
 
     def progress_illness(self):
-        """Progress this person's virus, curing them if it's run out."""
+        """Progress this person's viruses, curing them if it's run out."""
         for virus in self.viruses.copy():
             virus.progress()
             if virus.isCured():
@@ -613,7 +632,7 @@ class Person:
 
     def move(self):
         """Moves this person radius / 2 towards their destination. If their
-        destination is closer than radius / 2, they will move to their
+        destination is closer than radius / 2, they will move directly to their
         destination instead.
         """
         turtle.penup()  # Ensure nothing is drawn while moving
@@ -629,8 +648,8 @@ class Person:
         self.location = turtle.pos()
 
     def cure(self, virus=None):
-        """Removes the given virus from this person, otherwise removes all
-        viruses on this person.
+        """Removes the given virus from this person, otherwise, if a virus isn't
+        given, removes all viruses on this person.
         """
         if virus is None:
             for v in self.viruses.copy():
@@ -651,7 +670,9 @@ class Person:
 
 
 class World:
-    """This class represents a simulated world."""
+    """This class represents a simulated world containing people who can be
+    infected by viruses.
+    """
 
     def __init__(
             self,
@@ -660,13 +681,23 @@ class World:
             n,
             viruses=[
                 RainbowVirus,
-                # ZebraVirus,
-                # ImmunisableVirus,
-                # ZombieVirus,
-                # SnakeVirus
+                ZebraVirus,
+                ImmunisableVirus,
+                ZombieVirus,
+                SnakeVirus
             ]):
         """Creates a new world centered on (0, 0) containing n people which
         simulates the spread of the given virus(es) through this world.
+
+        Args:
+            width: horizontal length of the world in pixels
+            height: vertical length of the world in pixels
+            n (int): number of people to add to this world
+            viruses (list): virus classes that will be used to infect people in
+                this world
+
+        Raises:
+            ValueError: width and height must be even
         """
 
         if width % 2 != 0 or height % 2 != 0:
@@ -809,26 +840,34 @@ class World:
         return sum(True for person in self.people if person.is_infected())
 
 
-def draw_text(x, y, text, align='left', colour='black'):
-    """Writes the given text on the screen."""
+# def draw_text(x, y, text, align='left', colour='black'):
+def draw_text(x, y, text, colour='black', *args, **kwargs):
+    """Wrapper for turtle.write which takes an (x, y) position to write the
+    text at and an optional text colour.
+    """
     turtle.penup()  # Ensure nothing is drawn while moving
     turtle.color(colour)
     turtle.setpos(x, y)
-    turtle.write(text, align=align)
+    turtle.write(text, *args, **kwargs)
 
 
-def draw_rect(x, y, width, height):
+def draw_rect(x, y, width, height, colour='black'):
     """Draws a rectangle starting from the top-left corner."""
 
     # Draw the top-left corner of the rectangle
-    draw_line(x, y, width, orientation="horizontal")
-    draw_line(x, y, height)
+    draw_line(x, y, width, orientation="horizontal", colour='black')
+    draw_line(x, y, height, colour='black')
 
     # Draw the bottom-right corner of the rectangle
     x += width
     y -= height
-    draw_line(x, y, width, orientation="horizontal", reverse=True)
-    draw_line(x, y, height, reverse=True)
+    draw_line(x,
+              y,
+              width,
+              orientation="horizontal",
+              reverse=True,
+              colour='black')
+    draw_line(x, y, height, reverse=True, colour='black')
 
 
 def draw_line(x,
@@ -837,7 +876,20 @@ def draw_line(x,
               orientation="vertical",
               reverse=False,
               colour='black'):
-    """Draws a line starting from the top/left."""
+    """Draws a line starting at the given coordinates.
+
+    Args:
+        x: horizontal coordinate on the default turtle screen
+        y: vertical coordinate on the default turtle screen
+        length: length of the line in pixels
+        orientation: 'vertical' to draw a vertical line from the top-down
+            starting at the given x, y coordinates, 'horizontal' to draw the
+            line left-to-right
+        reverse: True to reverse the draw direction, e.g. draw bottom-top
+            instead of top-down
+        colour: colour of the line, can be any valid colour accepted by the
+            turtle module
+    """
     if orientation == "vertical":
         turtle.setheading(180)  # South
     elif orientation == "horizontal":
