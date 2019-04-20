@@ -22,7 +22,7 @@ class EfficientCollision:
         self.cells = {}
 
     def hash(self, location):
-        """Returns the cell location which contains the given location.
+        """Returns the cell location of each coordinate in the given location.
 
         Args:
             location (list/tuple): coordinates along each dimensions
@@ -114,15 +114,16 @@ class ColourGradient:
 
 
 class Virus:
-    """Base class for all viruses used to infect people.
-
-    This class implements a __hash__ and __eq__ method designed to help
-    prevent a person from being infected by the same virus twice when stored
-    in a set (all instances are considered equal).
-    """
+    """Base class for all viruses used to infect people."""
 
     def __init__(self, colour=(1, 0, 0), duration=7):
-        """Creates a virus with the given colour and duration."""
+        """Creates a virus with the given colour and duration.
+
+        Args:
+            colour (tuple): RGB colour with each colour channel expressed in
+                the range 0.0 and 1.0 (1.0 for most intense)
+            duration (int): how long this virus will last in hours
+        """
         self.colour = colour
         self.duration = duration
         self.remaining_duration = duration
@@ -137,19 +138,10 @@ class Virus:
 
     @classmethod
     def reset_class(cls):
-        """This method is called when a virus is added to a world and can be
-        ensure it is correctly reset to it's initial state.
+        """This method is called when a virus is added to a world and is used
+        used to ensure it is correctly reset to it's initial state.
         """
         pass
-
-    def __hash__(self):
-        """Returns a hash representing this class' name."""
-        return hash(self.__class__.__name__)
-
-    def __eq__(self, other):
-        """Returns True when equating two instances of this class, otherwise
-        returns False."""
-        return isinstance(other, self.__class__)
 
     def __repr__(self):
         """Returns a string of this virus' name, id and remaining duration.
@@ -178,7 +170,7 @@ class Virus:
 
     def cure(self, person):
         """Removes this virus from the given person."""
-        person.viruses.discard(self)
+        person.remove_virus(self)
 
 
 class RainbowVirus(Virus):
@@ -187,8 +179,8 @@ class RainbowVirus(Virus):
     """
 
     # Colour values for red, orange, yellow, green, blue, purple, violet
-    __colours = [(1, 0, 0), (1, 127 / 255, 0), (1, 1, 0), (0, 1, 0), (0, 0, 1),
-                 (75 / 255, 0, 130 / 255), (148 / 255, 0, 211 / 255)]
+    __colours = ((1, 0, 0), (1, 127 / 255, 0), (1, 1, 0), (0, 1, 0), (0, 0, 1),
+                 (75 / 255, 0, 130 / 255), (148 / 255, 0, 211 / 255))
 
     # Smooth the transition between colours
     __colours = ColourGradient.linear_sequence(__colours, 20)
@@ -238,7 +230,7 @@ class ZebraVirus(Virus):
         """Creates a new ZebraVirus with the given duration."""
         self.duration = duration
         self.remaining_duration = duration
-        self.colour_index = ZebraVirus.__colour_index
+        self.__colour_index = ZebraVirus.__colour_index
 
     @classmethod
     def on_world_update(cls, world):
@@ -254,7 +246,7 @@ class ZebraVirus(Virus):
         This attribute is decorated so that it can be accessed in the same way
         as all other viruses.
         """
-        return ZebraVirus.__colours[self.colour_index ==
+        return ZebraVirus.__colours[self.__colour_index ==
                                     ZebraVirus.__colour_index]
 
     @colour.setter
@@ -274,7 +266,15 @@ class ImmunisableVirus(Virus):
                  immune_colour=(0, 1, 0),
                  infected_colour=(1, 0, 0),
                  duration=28):
-        """Creates a new ImmunisableVirus with the given attributes."""
+        """Creates a new ImmunisableVirus with the given attributes.
+
+        Args:
+            immune_colour (tuple): RGB colour to set people cured of this virus
+                to where each channel is expressed in the range 0.0 to 1.0
+            infected_colour (tuple): same as immune_colour, but used for people
+                infected by this virus
+            duration (int): how long this virus lasts in hours
+        """
         super().__init__(infected_colour, duration)
         self.immune_colour = immune_colour
 
@@ -292,7 +292,7 @@ class ImmunisableVirus(Virus):
         """Removes this virus from the given person, makes them immune to this
         virus and changes their colour to indicate.
         """
-        person.viruses.discard(self)
+        person.remove_virus(self)
         person.colour = self.immune_colour
         ImmunisableVirus.immune.add(person)
 
@@ -300,11 +300,21 @@ class ImmunisableVirus(Virus):
 class ZombieVirus(Virus):
     """People infected by this virus will chase after people who aren't
     infected by any virus.
+
+    Public attributes:
+        idle_colour (tuple): RGB colour of people infected by this virus who
+            aren't chasing anyone
+        chase_colour (tuple): same as idle_colour, but for people who are
+            chasing someone
+        infected (dict): stores (person, virus) pairs, where person is a Person
+            instance and the key to the corresponding ZombieVirus instance they
+            are infected by
+        healthy (list): stores Person instances who aren't infected by anything
     """
 
     idle_colour = (0.5, 0, 0)
     chase_colour = (1, 0, 0)
-    infected = {}  # Stores (person, virus) pairs
+    infected = {}
     healthy = []
     __is_running = True
 
@@ -369,7 +379,7 @@ class ZombieVirus(Virus):
         return ZombieVirus.chase_colour
 
     @colour.setter
-    def colour(self, value_dict):
+    def colour(self, value):
         """Raises an AttributeError as instances of this virus cannot have
         their colour changed.
         """
@@ -386,10 +396,10 @@ class ZombieVirus(Virus):
             ZombieVirus.infected[person] = instance
 
     def cure(self, person):
-        """Removes this virus from the given person and removes them from this
+        """Removes this virus from the given person and removes them from
         ZombieVirus' list of infected people.
         """
-        person.viruses.discard(self)
+        person.remove_virus(self)
         del ZombieVirus.infected[person]
 
 
@@ -398,6 +408,19 @@ class SnakeVirus(Virus):
     people who aren't infected by any virus.
 
     In addition, the snake's head only moves along one axis at a time.
+
+    Public attributes:
+        head_colour (tuple): RGB colour of the person at the head of the snake
+            formed by this virus
+        body_colour (tuple): same as head_colour, but for everyone that isn't
+            at the head of the snake formed by this virus
+        infected (odict): stores (person, virus) pairs, where person is a
+            Person instance and the key to the corresponding SnakeVirus
+            instance they are infected by
+        target (Person): Person instance which will be chased after by the head
+            of the snake formed by this virus until that person is infected.
+            If this is None, the snake will find another random target if
+            possible, otherwise it will roam around randomly
     """
 
     head_colour = (1, 0, 0)
@@ -489,7 +512,7 @@ class SnakeVirus(Virus):
             return self.body_colour
 
     @colour.setter
-    def colour(self, value_dict):
+    def colour(self, value):
         """Raises an AttributeError as instances of this virus cannot have
         their colour changed.
         """
@@ -509,13 +532,16 @@ class SnakeVirus(Virus):
         """Removes this virus from the given person and removes them from
         SnakeVirus' list of infected people.
         """
-        person.viruses.discard(self)
+        person.remove_virus(self)
         del SnakeVirus.infected[person]
 
 
 class Person:
     """This class represents a person which randomly roams around and can be
     infected by viruses.
+
+    A person can be infected by multiple viruses at once, but they cannot be
+    infected by more than one instance of any type of virus at the same time.
     """
 
     def __init__(self, world_size, radius=7, colour=(0, 0, 0)):
@@ -540,7 +566,7 @@ class Person:
         self.radius = radius
         self.location = self._get_random_location()
         self.destination = self._get_random_location()
-        self.viruses = set()
+        self.viruses = list()
         self.colour = colour
 
     def _get_random_location(self):
@@ -592,24 +618,21 @@ class Person:
         return distance_2d(self.location, other.location) <= \
             (self.radius + other.radius)
 
-    def collision_list(self, list_of_others):
+    def collision_list(self, people):
         """Returns a list of people from the given list who are in contact
         with this person.
         """
-        return [person for person in list_of_others if self.collides(person)]
+        return [person for person in people if self.collides(person)]
 
     def infect(self, virus):
         """Infects this person with the given virus if they aren't already
         infected by it, otherwise refreshes the virus' duration on this person.
         """
 
-        # Try and get the instance of the given virus on this person (if any),
-        # otherwise add a new instance of the given virus to this person
         try:
-            instance = (self.viruses - (self.viruses - set([virus]))).pop()
-            instance.reset_duration()
+            self.get_virus(virus).reset_duration()
         except:
-            self.viruses.add(virus)
+            self.viruses.append(virus)
 
     def reached_destination(self):
         """Returns True if this person's location is within 1 radius of
@@ -654,8 +677,8 @@ class Person:
         self.location = turtle.pos()
 
     def cure(self, virus=None):
-        """Removes the given virus from this person, otherwise, if a virus isn't
-        given, removes all viruses on this person.
+        """Cures the instance of the given virus' class on this person,
+        otherwise, if a virus isn't given, removes all viruses on this person.
         """
         if virus is None:
             for v in self.viruses.copy():
@@ -663,16 +686,33 @@ class Person:
         else:
             virus.cure(self)
 
+    def remove_virus(self, virus):
+        """Removes the given virus from this person.
+
+        Raises:
+            ValueError: Person.remove_virus(x): x not in Person.viruses
+        """
+        try:
+            self.viruses.remove(virus)
+        except:
+            raise ValueError('Person.remove_virus(x): x not in Person.viruses')
+
     def is_infected(self):
         """Returns True if this person is infected, else False."""
         return bool(len(self.viruses))
 
+    def get_virus(self, virus):
+        """Returns the instance of the given virus' class on this person (if
+        any), otherwise returns None.
+        """
+        for v in self.viruses:
+            if isinstance(v, virus.__class__):
+                return v
+        return None  # For clarity
+
     def has_virus(self, virus):
         """Returns True if this person has the given virus, else False."""
-        for v in self.viruses:
-            if v == virus:
-                return True
-        return False
+        return bool(self.get_virus(virus))
 
 
 class World:
@@ -685,7 +725,8 @@ class World:
                  height,
                  n,
                  viruses=[
-                     ZombieVirus
+                     RainbowVirus, ZebraVirus, ImmunisableVirus, ZombieVirus,
+                     SnakeVirus
                  ]):
         """Creates a new world centered on (0, 0) containing n people which
         simulates the spread of the given virus(es) through this world.
@@ -928,11 +969,11 @@ class GraphicalWorld:
     """
 
     def __init__(self):
-        self.WIDTH = 800
-        self.HEIGHT = 600
+        self.WIDTH = 200
+        self.HEIGHT = 200
         self.TITLE = 'COMPSCI 130 Project One'
         self.MARGIN = 50  # gap around each side
-        self.PEOPLE = 1  # number of people in the simulation
+        self.PEOPLE = 20  # number of people in the simulation
         self.framework = AnimationFramework(self.WIDTH, self.HEIGHT,
                                             self.TITLE)
 
