@@ -26,7 +26,7 @@ class EfficientCollision:
         return [int(coord / self.cell_size) for coord in location]
 
     def get_bounding_box(self, person):
-        """Returns the axis-aligned bounding box for the given personx
+        """Returns the axis-aligned bounding box for the given person
         represented by the min and max coordinates along the x and y axes.
         """
         x, y = person.location
@@ -238,7 +238,7 @@ class ZebraVirus(Virus):
         """Moves onto the next colour, starting again from the beginning once
         all the colours have been cycled through.
         """
-        cls.colour_index = (cls.colour_index + 1) % 2
+        cls.colour_index = not cls.colour_index
 
     @property
     def colour(self):
@@ -298,7 +298,7 @@ class ZombieVirus(Virus):
     chase_colour = (1, 0, 0)
     infected = {}  # Stores (person, virus) pairs
     healthy = []
-    is_running = True
+    __is_running = True
 
     def __init__(self, duration=-1):
         """Creates a new ZombieVirus with the given attributes."""
@@ -320,20 +320,20 @@ class ZombieVirus(Virus):
         #   converging on the position of the last healthy person
         # - Prevent the rest of this method from executing until there
         #   are healthy people to target
-        if not cls.healthy and cls.is_running:
+        if not cls.healthy and cls.__is_running:
             for person, virus in cls.infected.items():
                 person.destination = person._get_random_location()
                 virus.target = None
-            cls.is_running = False
+            cls.__is_running = False
             return
 
         # If healthy people appear while this virus has stopped then this
         # virus can start up again and try to infect them
-        elif cls.healthy and not cls.is_running:
-            cls.is_running = True
+        elif cls.healthy and not cls.__is_running:
+            cls.__is_running = True
 
         # There's nothing left to infect
-        elif not cls.is_running:
+        elif not cls.__is_running:
             return
 
         # Assign targets and destinations to each infected person
@@ -349,7 +349,7 @@ class ZombieVirus(Virus):
         """
         cls.infected.clear()
         cls.healthy.clear()
-        cls.is_running = True
+        cls.__is_running = True
 
     @property
     def colour(self):
@@ -389,9 +389,7 @@ class SnakeVirus(Virus):
     """This virus forms a snake with those infected by it that chases after
     people who aren't infected.
 
-    In addition, the snake:
-    - Moves along one axis at a time
-    - Only infects people with it's head
+    In addition, the snake's head only moves along one axis at a time.
     """
 
     head_colour = (1, 0, 0)
@@ -674,18 +672,14 @@ class World:
     infected by viruses.
     """
 
-    def __init__(
-            self,
-            width,
-            height,
-            n,
-            viruses=[
-                RainbowVirus,
-                ZebraVirus,
-                ImmunisableVirus,
-                ZombieVirus,
-                SnakeVirus
-            ]):
+    def __init__(self,
+                 width,
+                 height,
+                 n,
+                 viruses=[
+                     RainbowVirus, ZebraVirus, ImmunisableVirus, ZombieVirus,
+                     SnakeVirus
+                 ]):
         """Creates a new world centered on (0, 0) containing n people which
         simulates the spread of the given virus(es) through this world.
 
@@ -693,8 +687,8 @@ class World:
             width: horizontal length of the world in pixels
             height: vertical length of the world in pixels
             n (int): number of people to add to this world
-            viruses (list): virus classes that will be used to infect people in
-                this world
+            viruses (iterable): virus classes that will be used to infect
+                people in this world
 
         Raises:
             ValueError: width and height must be even
@@ -918,7 +912,7 @@ def distance_2d(a, b):
 
 
 class GraphicalWorld:
-    """ Handles the user interface for the simulation
+    """Handles the user interface for the simulation
 
     space - starts and stops the simulation
     'z' - resets the application to the initial state
@@ -944,7 +938,7 @@ class GraphicalWorld:
         self.world = None
 
     def setup(self):
-        """ Reset the simulation to the initial state """
+        """Reset the simulation to the initial state."""
         print('resetting the world')
         self.framework.stop_simulation()
         self.world = World(self.WIDTH - self.MARGIN * 2,
@@ -952,26 +946,32 @@ class GraphicalWorld:
         self.world.draw()
 
     def infect(self):
-        """ Infect a person, and update the drawing """
+        """Infect a person and redraw the world if the simulation isn't
+        running.
+        """
         print('infecting a person')
         self.world.infect_person()
-        self.world.draw()
+        if not self.framework.simulation_is_running():
+            self.world.draw()
 
     def cure(self):
-        """ Remove infections from all the people """
+        """Remove infections from all the people and redraw the world if the
+        simulation isn't running.
+        """
         print('cured all people')
         self.world.cure_all()
-        self.world.draw()
+        if not self.framework.simulation_is_running():
+            self.world.draw()
 
     def toggle_simulation(self):
-        """ Starts and stops the simulation """
+        """Starts and stops the simulation."""
         if self.framework.simulation_is_running():
             self.framework.stop_simulation()
         else:
             self.framework.start_simulation()
 
     def next_turn(self):
-        """ Perform the tasks needed for the next animation cycle """
+        """Perform the tasks needed for the next animation cycle."""
         self.world.simulate()
         self.world.draw()
         # self.framework.stop_simulation()  # To advance one hour at a time
