@@ -22,7 +22,11 @@ class EfficientCollision:
         self.cells = {}
 
     def hash(self, location):
-        """Returns the cell location which contains the given location."""
+        """Returns the cell location which contains the given location.
+
+        Args:
+            location (list/tuple): coordinates along each dimensions
+        """
         return [int(coord / self.cell_size) for coord in location]
 
     def get_bounding_box(self, person):
@@ -168,7 +172,7 @@ class Virus:
         """Sets the remaining duration of this virus to it's initial value."""
         self.remaining_duration = self.duration
 
-    def isCured(self):
+    def is_cured(self):
         """Returns True if this virus has run out, otherwise returns False."""
         return self.remaining_duration == 0
 
@@ -183,12 +187,15 @@ class RainbowVirus(Virus):
     """
 
     # Colour values for red, orange, yellow, green, blue, purple, violet
-    colours = [(1, 0, 0), (1, 127 / 255, 0), (1, 1, 0), (0, 1, 0), (0, 0, 1),
-               (75 / 255, 0, 130 / 255), (148 / 255, 0, 211 / 255)]
-    colours = ColourGradient.linear_sequence(colours, 20)
-    colours += colours[1:-1][::-1]  # Smooth the transition from violet to red
-    colour_count = len(colours)
-    colour_index = 0
+    __colours = [(1, 0, 0), (1, 127 / 255, 0), (1, 1, 0), (0, 1, 0), (0, 0, 1),
+                 (75 / 255, 0, 130 / 255), (148 / 255, 0, 211 / 255)]
+
+    # Smooth the transition between colours
+    __colours = ColourGradient.linear_sequence(__colours, 20)
+    __colours += __colours[1:-1][::-1]
+
+    __colour_count = len(__colours)
+    __colour_index = 0
 
     def __init__(self, duration=14):
         """Creates a new RainbowVirus with the given duration."""
@@ -200,7 +207,7 @@ class RainbowVirus(Virus):
         """Moves onto the next colour in the rainbow, starting again from the
         beginning once all the colours have been cycled through.
         """
-        cls.colour_index = (cls.colour_index + 1) % cls.colour_count
+        cls.__colour_index = (cls.__colour_index + 1) % cls.__colour_count
 
     @property
     def colour(self):
@@ -209,7 +216,7 @@ class RainbowVirus(Virus):
         This attribute is decorated so that it can be accessed in the same way
         as all other viruses.
         """
-        return RainbowVirus.colours[RainbowVirus.colour_index]
+        return RainbowVirus.__colours[RainbowVirus.__colour_index]
 
     @colour.setter
     def colour(self, value):
@@ -224,21 +231,21 @@ class ZebraVirus(Virus):
     and white.
     """
 
-    colours = [(0, 0, 0), (1, 1, 1)]  # Black and white
-    colour_index = 0
+    __colours = [(0, 0, 0), (1, 1, 1)]  # Black and white
+    __colour_index = 0
 
     def __init__(self, duration=21):
         """Creates a new ZebraVirus with the given duration."""
         self.duration = duration
         self.remaining_duration = duration
-        self.colour_index = ZebraVirus.colour_index
+        self.colour_index = ZebraVirus.__colour_index
 
     @classmethod
     def on_world_update(cls, world):
         """Moves onto the next colour, starting again from the beginning once
         all the colours have been cycled through.
         """
-        cls.colour_index = not cls.colour_index
+        cls.__colour_index = not cls.__colour_index
 
     @property
     def colour(self):
@@ -247,7 +254,8 @@ class ZebraVirus(Virus):
         This attribute is decorated so that it can be accessed in the same way
         as all other viruses.
         """
-        return ZebraVirus.colours[self.colour_index == ZebraVirus.colour_index]
+        return ZebraVirus.__colours[self.colour_index ==
+                                    ZebraVirus.__colour_index]
 
     @colour.setter
     def colour(self, value):
@@ -291,7 +299,7 @@ class ImmunisableVirus(Virus):
 
 class ZombieVirus(Virus):
     """People infected by this virus will chase after people who aren't
-    infected.
+    infected by any virus.
     """
 
     idle_colour = (0.5, 0, 0)
@@ -387,7 +395,7 @@ class ZombieVirus(Virus):
 
 class SnakeVirus(Virus):
     """This virus forms a snake with those infected by it that chases after
-    people who aren't infected.
+    people who aren't infected by any virus.
 
     In addition, the snake's head only moves along one axis at a time.
     """
@@ -613,7 +621,7 @@ class Person:
         """Progress this person's viruses, curing them if it's run out."""
         for virus in self.viruses.copy():
             virus.progress()
-            if virus.isCured():
+            if virus.is_cured():
                 self.cure(virus)
 
     def update(self):
@@ -661,10 +669,10 @@ class Person:
 
     def has_virus(self, virus):
         """Returns True if this person has the given virus, else False."""
-        try:
-            return bool((self.viruses - (self.viruses - set([virus]))).pop())
-        except:
-            return False
+        for v in self.viruses:
+            if v == virus:
+                return True
+        return False
 
 
 class World:
@@ -677,8 +685,7 @@ class World:
                  height,
                  n,
                  viruses=[
-                     RainbowVirus, ZebraVirus, ImmunisableVirus, ZombieVirus,
-                     SnakeVirus
+                     ZombieVirus
                  ]):
         """Creates a new world centered on (0, 0) containing n people which
         simulates the spread of the given virus(es) through this world.
@@ -925,7 +932,7 @@ class GraphicalWorld:
         self.HEIGHT = 600
         self.TITLE = 'COMPSCI 130 Project One'
         self.MARGIN = 50  # gap around each side
-        self.PEOPLE = 200  # number of people in the simulation
+        self.PEOPLE = 1  # number of people in the simulation
         self.framework = AnimationFramework(self.WIDTH, self.HEIGHT,
                                             self.TITLE)
 
