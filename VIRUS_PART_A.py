@@ -139,7 +139,7 @@ class Virus:
     @classmethod
     def reset_class(cls):
         """This method is called when a virus is added to a world and is used
-        used to ensure it is correctly reset to it's initial state.
+        to ensure it is correctly reset to it's initial state.
         """
         pass
 
@@ -150,7 +150,7 @@ class Virus:
         """
         return (f'<{self.__class__.__name__} '
                 f'@ {id(self)} dur: '
-                f'{self.remaining_duration}/{self.duration}')
+                f'{self.remaining_duration}/{self.duration}>')
 
     def progress(self):
         """Reduces the remaining duration of this virus by 1."""
@@ -176,14 +176,23 @@ class Virus:
 class RainbowVirus(Virus):
     """This virus infects people with a synchronised animation through the
     colours of a rainbow.
+
+    Private attributes:
+        colours (tuple): RGB colour values (red, orange, yellow, green, blue,
+            indigo, violet, indigo, blue, green, yellow, orange) interpolated n
+            times (see interpolations) between each colour
+        interpolations (int): number of interpolated colours inserted in
+            between each colour in colours
+        colour_count (int): length of colours (including interpolated colours)
+        colour_index (int): current colour in colours that is being displayed
     """
 
-    # Colour values for red, orange, yellow, green, blue, purple, violet
     __colours = ((1, 0, 0), (1, 127 / 255, 0), (1, 1, 0), (0, 1, 0), (0, 0, 1),
                  (75 / 255, 0, 130 / 255), (148 / 255, 0, 211 / 255))
 
     # Smooth the transition between colours
-    __colours = ColourGradient.linear_sequence(__colours, 20)
+    __interpolations = 20
+    __colours = ColourGradient.linear_sequence(__colours, __interpolations)
     __colours += __colours[1:-1][::-1]
 
     __colour_count = len(__colours)
@@ -221,9 +230,13 @@ class RainbowVirus(Virus):
 class ZebraVirus(Virus):
     """People infected with this virus individually alternate between black
     and white.
+
+    Private attributes:
+        colours (tuple): RGB colour values for black and white
+        colour_index (int): current colour in colours that is being displayed
     """
 
-    __colours = [(0, 0, 0), (1, 1, 1)]  # Black and white
+    __colours = [(0, 0, 0), (1, 1, 1)]
     __colour_index = 0
 
     def __init__(self, duration=21):
@@ -310,6 +323,11 @@ class ZombieVirus(Virus):
             instance and the key to the corresponding ZombieVirus instance they
             are infected by
         healthy (list): stores Person instances who aren't infected by anything
+
+    Private attributes:
+        is_running (bool): determines whether people infected by this virus
+            will be assigned new targets to chase. True if there are people in
+            healthy, False otherwise
     """
 
     idle_colour = (0.5, 0, 0)
@@ -969,11 +987,11 @@ class GraphicalWorld:
     """
 
     def __init__(self):
-        self.WIDTH = 200
-        self.HEIGHT = 200
+        self.WIDTH = 800
+        self.HEIGHT = 600
         self.TITLE = 'COMPSCI 130 Project One'
         self.MARGIN = 50  # gap around each side
-        self.PEOPLE = 20  # number of people in the simulation
+        self.PEOPLE = 200  # number of people in the simulation
         self.framework = AnimationFramework(self.WIDTH, self.HEIGHT,
                                             self.TITLE)
 
