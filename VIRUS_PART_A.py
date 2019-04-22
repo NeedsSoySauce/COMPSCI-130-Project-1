@@ -696,10 +696,13 @@ class Person:
         turtle.setpos(self.location)
 
         distance = distance_2d(self.location, self.destination)
+
+        # Clamp distance below radius / 2 (inclusive)
         half_radius = self.radius / 2
         if distance > half_radius:
             distance = half_radius
 
+        # Move the person towards their destination
         turtle.setheading(turtle.towards(self.destination))
         turtle.forward(distance)
         self.location = turtle.pos()
