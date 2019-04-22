@@ -271,7 +271,11 @@ class ZebraVirus(Virus):
 
 
 class ImmunisableVirus(Virus):
-    """People who are cured of this virus cannot be infected by it again."""
+    """People who are cured of this virus cannot be infected by it again.
+
+    Public attributes:
+        immune (set): people in this set cannot be infected by this virus
+    """
 
     immune = set()
 
@@ -559,7 +563,8 @@ class Person:
     infected by viruses.
 
     A person can be infected by multiple viruses at once, but they cannot be
-    infected by more than one instance of any type of virus at the same time.
+    infected by more than one instance of the same type of virus at the same
+    time.
     """
 
     def __init__(self, world_size, radius=7, colour=(0, 0, 0)):
@@ -569,7 +574,7 @@ class Person:
         Args:
             world_size (tuple): width and height of the world which this person
                 can roam around centered at (0, 0) on the default turtlescreen
-            radius: radius of this person in pixels
+            radius (int): radius of this person in pixels
             colour (tuple): an RGB colour where each channel is a float
                 between 0 and 1.0
 
@@ -594,14 +599,14 @@ class Person:
         this person's world.
         """
 
-        # Adjust coordinates to start from the top-left corner of the world
         width, height = self.world_size
-        x = 0 - width // 2
-        y = height // 2
 
-        # Generate a random (x, y) coordinate within the world's borders
-        x += random.uniform(self.radius, width - self.radius)
-        y -= random.uniform(self.radius, height - self.radius)
+        # # Generate a random (x, y) coordinate within the world's borders
+        x = random.uniform(self.radius, width - self.radius)
+        y = random.uniform(self.radius, height - self.radius)
+
+        x -= width // 2
+        y -= height // 2
 
         return x, y
 
@@ -620,7 +625,12 @@ class Person:
         return tuple(colour)
 
     def draw(self):
-        """Draws this person as a coloured dot at their current location."""
+        """Draws this person as a coloured dot at their current location.
+
+        The colour will be the colour from this colour attribute if they aren't
+        infected, otherwise it will be average colour of the virus(es) they are
+        infected by.
+        """
         turtle.penup()  # Ensure nothing is drawn while moving
         turtle.setpos(self.location)
         turtle.dot(self.radius * 2, self.get_colour())
@@ -750,8 +760,8 @@ class World:
         simulates the spread of the given virus(es) through this world.
 
         Args:
-            width: horizontal length of the world in pixels
-            height: vertical length of the world in pixels
+            width (int): horizontal length of the world in pixels
+            height (int): vertical length of the world in pixels
             n (int): number of people to add to this world
             viruses (iterable): virus classes that will be used to infect
                 people in this world
@@ -874,11 +884,11 @@ class World:
             method(self)
 
     def draw(self):
-        """Draws this world.
+        """Draws this world on the default turtle screen.
 
         - Clears the current screen
         - Draws all the people in this world
-        - Draw the box that frames this world
+        - Draws the box that frames this world
         - Writes the number of hours and number of people infected at the top
           of the frame
         """
@@ -939,14 +949,14 @@ def draw_line(x,
     """Draws a line starting at the given coordinates.
 
     Args:
-        x: horizontal coordinate on the default turtle screen
-        y: vertical coordinate on the default turtle screen
-        length: length of the line in pixels
-        orientation: 'vertical' to draw a vertical line from the top-down
+        x (int): horizontal coordinate on the default turtle screen
+        y (int): vertical coordinate on the default turtle screen
+        length (int): length of the line in pixels
+        orientation (str): 'vertical' to draw a vertical line from the top-down
             starting at the given x, y coordinates, 'horizontal' to draw the
             line left-to-right
-        reverse: True to reverse the draw direction, e.g. draw bottom-top
-            instead of top-down
+        reverse (bool): True to reverse the draw direction, e.g. draw
+            bottom-top instead of top-down
         colour: colour of the line, can be any valid colour accepted by the
             turtle module
     """
