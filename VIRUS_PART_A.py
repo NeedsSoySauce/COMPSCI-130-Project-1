@@ -1,9 +1,11 @@
-# COMPSCI 130, Semester 012019
-# Project Two - Virus
+"""
+COMPSCI 130, Semester 012019
+Project Two - Virus
 
-# Author: Feras Albaroudi
-# UPI: falb418
-# ID: 606316306
+Author: Feras Albaroudi
+UPI: falb418
+ID: 606316306
+"""
 
 import turtle
 import random
@@ -71,8 +73,8 @@ class ColourGradient:
         interpolated colours in between each colour in the given ordered
         list of colours.
 
-        Each colour in colours should should be a list or tuple of colour
-        channel values weighted in the same way. e.g. (1.0, 0.0, 0.0) for red
+        Each colour in colours should be a list or tuple of colour channel
+        values weighted in the same way. e.g. (1.0, 0.0, 0.0) for red
 
         Raises:
             ValueError: cannot create a gradient with < 2 colours."
@@ -790,7 +792,7 @@ class World:
         for cls in self.viruses:
             cls.reset_class()
             if hasattr(cls, "on_world_update"):
-                self.on_update_methods.append(getattr(cls, "on_world_update"))
+                self.on_update_methods.append(cls.on_world_update)
 
     def add_person(self):
         """Adds a new person to this world."""
@@ -913,7 +915,6 @@ class World:
         return sum(True for person in self.people if person.is_infected())
 
 
-# def draw_text(x, y, text, align='left', colour='black'):
 def draw_text(x, y, text, colour='black', *args, **kwargs):
     """Wrapper for turtle.write which takes an (x, y) position to write the
     text at and an optional text colour.
